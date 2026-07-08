@@ -47,10 +47,42 @@ const MAT = {
 const TRI = {1:"Trimestre 1",2:"Trimestre 2",3:"Trimestre 3"};
 
 /* ── Client REST minimal ────────────────────────────────────────── */
+// Cache persistant du CONTENU (cours/chapitres/exercices/devoirs) : le contenu change
+// rarement → on le sert du téléphone pendant 24h au lieu de re-télécharger à chaque visite.
+// Scalabilité : divise l'egress Supabase par ~10 et rend la navigation instantanée.
+const CACHE_TTL = 24 * 3600 * 1000;
+const CACHE_MAX = 80;              // ~80 réponses max (localStorage ≈ 5 Mo)
+const CACHE_CONTENU = /^edu_(chapitres|documents|matieres|niveaux|sections|exercices|devoirs)\?/;
+function cacheGet(k) {
+  try {
+    const raw = localStorage.getItem("njc:" + k);
+    if (!raw) return null;
+    const o = JSON.parse(raw);
+    if (Date.now() - o.t > CACHE_TTL) { localStorage.removeItem("njc:" + k); return null; }
+    return o.d;
+  } catch { return null; }
+}
+function cacheSet(k, d) {
+  try {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) { const key = localStorage.key(i); if (key && key.startsWith("njc:")) keys.push(key); }
+    if (keys.length >= CACHE_MAX) {
+      // éviction du plus ancien
+      let oldest = null, oldestT = Infinity;
+      keys.forEach(key => { try { const t = JSON.parse(localStorage.getItem(key)).t; if (t < oldestT) { oldestT = t; oldest = key; } } catch { localStorage.removeItem(key); } });
+      if (oldest) localStorage.removeItem(oldest);
+    }
+    localStorage.setItem("njc:" + k, JSON.stringify({ t: Date.now(), d }));
+  } catch {} // stockage plein : on continue sans cache
+}
 async function api(path) {
+  const cachable = CACHE_CONTENU.test(path);
+  if (cachable) { const hit = cacheGet(path); if (hit) return hit; }
   const r = await fetch(REST + path, { headers: H });
   if (!r.ok) throw new Error("api " + r.status + " " + path);
-  return r.json();
+  const d = await r.json();
+  if (cachable && Array.isArray(d) && d.length) cacheSet(path, d);
+  return d;
 }
 const cache = {};
 async function cached(k, fn) { if (cache[k]) return cache[k]; return (cache[k] = await fn()); }
