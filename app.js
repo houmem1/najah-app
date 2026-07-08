@@ -1262,7 +1262,16 @@ function richText(t) {
 }
 function botBubble(t) {
   const d = bubble("bot", richText(t));
-  // Réponse vocale de l'assistant désactivée (pas de bouton « Écouter »).
+  // Bouton « Écouter » : lecture vocale de la réponse (FR = voix française,
+  // arabe/derja = meilleure voix arabe de l'appareil, ar-TN en priorité).
+  if ("speechSynthesis" in window) {
+    const b = document.createElement("button");
+    b.className = "speak";
+    b.type = "button";
+    b.textContent = "🔊 Écouter";
+    b.onclick = () => { if (speakBtnActif === b) stopSpeak(); else speak(t, b); };
+    d.appendChild(b);
+  }
   return d;
 }
 
@@ -1313,8 +1322,12 @@ async function sendMessage(text) {
   typing.remove();
   acc = (acc || "").trim() || "🤔 Je n'ai pas de réponse pour l'instant, reformule ta question ?";
   const d = botBubble(acc);
-  // Réponse vocale désactivée : on réinitialise seulement l'indicateur.
-  if (lastWasVoice) lastWasVoice = false;
+  // Question posée à la voix → réponse lue à voix haute automatiquement.
+  if (lastWasVoice) {
+    lastWasVoice = false;
+    const btn = d.querySelector(".speak");
+    speak(acc, btn || undefined);
+  }
   sending = false;
   addPoints(1);
 }
@@ -1356,18 +1369,49 @@ function parseWhole(txt) {
    VOIX — TTS (Web Speech) + STT (Groq Whisper → repli Web Speech)
    ══════════════════════════════════════════════════════════════════ */
 let lastWasVoice = false;
-function stopSpeak() { try { speechSynthesis.cancel(); } catch {} }
-function speak(text) {
-  if (!("speechSynthesis" in window)) return toast("La lecture vocale n'est pas disponible ici.");
+let speakBtnActif = null;   // bouton « Écouter » en cours de lecture
+function stopSpeak() {
+  try { speechSynthesis.cancel(); } catch {}
+  if (speakBtnActif) { speakBtnActif.textContent = "🔊 Écouter"; speakBtnActif = null; }
+}
+// Prépare un texte pour la lecture vocale : retire LaTeX, emojis, markdown.
+function texteParlable(t) {
+  return String(t || "")
+    .replace(/\$\$([\s\S]*?)\$\$/g, " $1 ")
+    .replace(/\$([^$\n]+)\$/g, " $1 ")
+    .replace(/\\(frac|sqrt|times|div|cdot|approx|le|ge|ne|pi|text|left|right|ln|log|sin|cos|tan|int|lim|infty|rightarrow|Delta|theta)\b/g, " ")
+    .replace(/\\[,;]/g, " ")
+    .replace(/[\\{}^_~]/g, " ")
+    .replace(/[*_#`>|]/g, " ")
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{FE0F}\u{2B00}-\u{2BFF}]/gu, " ")
+    .replace(/\s+/g, " ").trim();
+}
+// Lecture vocale : FR = fr-FR ; texte arabe (y compris derja écrite) = meilleure voix arabe
+// du téléphone, en préférant les voix maghrébines (ar-TN > ar-MA/ar-DZ/ar-LY > ar-*).
+function speak(text, btn) {
+  if (!("speechSynthesis" in window)) return toast("La lecture vocale n'est pas disponible sur cet appareil.");
   stopSpeak();
-  const u = new SpeechSynthesisUtterance(text.replace(/[*_#`>]/g, ""));
-  const ar = isAr(text);
-  u.lang = ar ? "ar-SA" : "fr-FR";
+  const clean = texteParlable(text);
+  if (!clean) return;
+  const ar = isAr(clean);
   const voices = speechSynthesis.getVoices();
-  const v = voices.find(x => x.lang && x.lang.toLowerCase().startsWith(ar ? "ar" : "fr"));
-  if (v) u.voice = v;
-  u.rate = ar ? 0.95 : 1; u.pitch = 1;
-  speechSynthesis.speak(u);
+  const pick = prefs => { for (const p of prefs) { const v = voices.find(x => x.lang && x.lang.toLowerCase().replace("_","-").startsWith(p)); if (v) return v; } return null; };
+  const v = ar ? pick(["ar-tn", "ar-ma", "ar-dz", "ar-ly", "ar"]) : pick(["fr-fr", "fr"]);
+  // Découpage en phrases : les très longs textes sont coupés par certains moteurs (Android).
+  const parts = (clean.match(/[^.!?؟۔:;]+[.!?؟۔:;]?/g) || [clean]).map(s => s.trim()).filter(s => s.length > 1);
+  if (btn) { speakBtnActif = btn; btn.textContent = "⏹️ Stop"; }
+  parts.forEach((p, i) => {
+    const u = new SpeechSynthesisUtterance(p);
+    u.lang = v ? v.lang : (ar ? "ar-SA" : "fr-FR");
+    if (v) u.voice = v;
+    u.rate = ar ? 0.95 : 1; u.pitch = 1;
+    if (i === parts.length - 1) u.onend = () => { if (speakBtnActif === btn) stopSpeak(); };
+    speechSynthesis.speak(u);
+  });
+}
+// Précharge la liste des voix (asynchrone sur Chrome/Android).
+if ("speechSynthesis" in window) {
+  try { speechSynthesis.getVoices(); speechSynthesis.addEventListener("voiceschanged", () => speechSynthesis.getVoices()); } catch {}
 }
 
 let mediaRec = null, chunks = [], recording = false;
