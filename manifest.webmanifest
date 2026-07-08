@@ -1,0 +1,20 @@
+{
+  "name": "Najah — نجاح · Prof particulier gratuit",
+  "short_name": "Najah",
+  "id": "/",
+  "description": "Cours, exercices, devoirs et tuteur vocal en derja pour tous les élèves tunisiens. 100% gratuit, 24h/24.",
+  "lang": "fr",
+  "dir": "auto",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f6fb",
+  "theme_color": "#E70013",
+  "categories": ["education"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-app.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" },
+    { "src": "icon-app.png", "sizes": "1024x1024", "type": "image/png", "purpose": "maskable" }
+  ]
+}

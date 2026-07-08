@@ -1,0 +1,49 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#E70013">
+<meta name="description" content="Najah — نجاح : ton prof particulier gratuit, 24h/24. Cours, exercices, devoirs et tuteur vocal en derja pour tous les élèves tunisiens.">
+<title>Najah — نجاح · نجاحك يبدأ هنا</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="styles.css?v=30">
+<!-- KaTeX : rendu des équations LaTeX ($…$ et $$…$$) dans cours, exercices et devoirs -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+
+<div id="app" aria-live="polite"></div>
+
+<!-- Assistant IA flottant, présent tout au long de la session -->
+<button id="fab-tutor" class="fab-tutor" aria-label="Ouvrir Najah IA">
+  <span class="fab-emoji">🧑‍🏫</span>
+  <span class="fab-pulse"></span>
+</button>
+
+<!-- Panneau du tuteur (chat + voix) -->
+<div id="tutor-panel" class="tutor-panel" hidden>
+  <div class="tutor-head">
+    <div class="tutor-id">
+      <span class="tutor-ava">🧑‍🏫</span>
+      <div>
+        <strong>Najah IA</strong>
+        <small>نجاحك يبدأ هنا · 24h/24</small>
+      </div>
+    </div>
+    <div class="tutor-head-btns">
+      <button id="tutor-fullscreen" class="ico-btn" title="Plein écran" aria-label="Plein écran">⤢</button>
+      <button id="tutor-close" class="ico-btn" title="Fermer" aria-label="Fermer">✕</button>
+    </div>
+  </div>
+  <div id="tutor-msgs" class="tutor-msgs"></div>
+  <div class="tutor-input">
+    <button id="mic-btn" class="mic-btn" title="Parler (derja)" aria-label="Parler">🎙️</button>
+    <textarea id="tutor-text" rows="1" placeholder="Écris ou parle... اكتب أو احكي"></textarea>
+    <button id="send-btn" class="send-btn" title="Envoyer" aria-label="Envoyer">➤</button>
+  </div>
+  <div id="voice-hint" class="voice-hint"></div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="config.js?v=30"></script>
+<script src="app.js?v=30"></script>

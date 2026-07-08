@@ -1,0 +1,239 @@
+:root{
+  --rouge:#E70013; --rouge-d:#b8000f;
+  --bg:#f4f6fb; --card:#ffffff; --ink:#141b2d; --muted:#6b7690;
+  --line:#e7ebf3; --ok:#11a86a; --warn:#f0a500;
+  --shadow:0 6px 22px rgba(20,27,45,.08);
+  --shadow-lg:0 14px 40px rgba(20,27,45,.16);
+  --r:18px;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Naskh Arabic","Noto Sans Arabic",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);-webkit-tap-highlight-color:transparent;overscroll-behavior-y:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+[dir=rtl]{font-family:"Noto Naskh Arabic","Noto Sans Arabic",system-ui,sans-serif}
+
+/* ── Layout ─────────────────────────────── */
+#app{max-width:760px;margin:0 auto;padding:0 16px 96px}
+.topbar{position:sticky;top:0;z-index:20;background:linear-gradient(135deg,var(--rouge),#ff4757);
+  margin:0 -16px 16px;padding:14px 18px calc(14px + env(safe-area-inset-top));color:#fff;
+  border-radius:0 0 24px 24px;box-shadow:var(--shadow)}
+.topbar-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:19px;letter-spacing:.2px}
+.brand .logo{width:34px;height:34px;display:grid;place-items:center;background:#fff;border-radius:10px;font-size:20px;overflow:hidden}
+.brand .logo img{width:100%;height:100%;object-fit:cover;display:block}
+.onb-hero .hero-logo{width:104px;height:104px;border-radius:26px;box-shadow:var(--shadow-lg);object-fit:cover}
+.stat-chips{display:flex;gap:8px}
+.chip{background:rgba(255,255,255,.18);backdrop-filter:blur(4px);border-radius:999px;padding:5px 11px;
+  font-size:13px;font-weight:700;display:flex;align-items:center;gap:5px}
+.subline{margin-top:8px;font-size:13.5px;opacity:.95;font-weight:500}
+
+/* ── Cards & grids ──────────────────────── */
+.section-title{font-size:15px;font-weight:800;margin:22px 4px 12px;color:var(--ink);display:flex;align-items:center;gap:8px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);border:1px solid var(--line)}
+.subject{padding:16px;display:flex;flex-direction:column;gap:10px;position:relative;overflow:hidden;
+  transition:transform .12s ease,box-shadow .12s ease;text-align:start}
+.subject:active{transform:scale(.97)}
+.subject .emoji{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;font-size:25px;color:#fff}
+.subject .s-name{font-weight:800;font-size:15.5px;line-height:1.2}
+.subject .s-meta{font-size:12.5px;color:var(--muted);font-weight:600}
+.subject .arrow{position:absolute;top:16px;inset-inline-end:14px;color:var(--muted);font-size:18px}
+
+.row-card{display:flex;align-items:center;gap:13px;padding:15px 16px;width:100%;text-align:start;
+  transition:transform .1s ease}
+.row-card:active{transform:scale(.985)}
+.row-card+.row-card{margin-top:10px}
+.row-num{min-width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-weight:800;
+  background:#eef1fb;color:var(--rouge);font-size:14px}
+.row-main{flex:1;min-width:0}
+.row-main b{display:block;font-size:15px;font-weight:700;line-height:1.3}
+.row-main small{color:var(--muted);font-size:12.5px;font-weight:600}
+.row-card .arrow{color:var(--muted);font-size:18px}
+
+.tri-tag{font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;background:#eef1fb;color:#4557c7}
+.badge{font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px}
+.badge.ar{background:#e6f7f0;color:#0a8a56}
+.badge.fr{background:#eef0ff;color:#4557c7}
+.badge.done{background:#e6f7f0;color:#0a8a56}
+.badge.diff{background:#fff3e0;color:#c47d00}
+
+/* ── Buttons ────────────────────────────── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;border-radius:14px;
+  font-weight:800;font-size:14.5px;background:var(--rouge);color:#fff;box-shadow:var(--shadow);transition:filter .1s,transform .1s}
+.btn:active{transform:scale(.97)}
+.btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:none}
+.btn.soft{background:#eef1fb;color:var(--rouge);box-shadow:none}
+.btn.ok{background:var(--ok)}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.btn.block{width:100%}
+
+.back{display:inline-flex;align-items:center;gap:6px;color:#fff;font-weight:700;font-size:14px;margin-bottom:2px}
+.tabs{display:flex;gap:8px;margin:4px 0 16px;overflow-x:auto;padding-bottom:4px}
+.tab{padding:9px 16px;border-radius:999px;font-weight:800;font-size:13.5px;background:#fff;color:var(--muted);
+  border:1px solid var(--line);white-space:nowrap}
+.tab.active{background:var(--rouge);color:#fff;border-color:var(--rouge)}
+
+/* ── Content blocks ─────────────────────── */
+.lesson{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);border:1px solid var(--line);
+  padding:18px;line-height:1.85;font-size:15.5px;word-wrap:break-word}
+.lesson h3{margin:0 0 12px;font-size:18px;padding-bottom:8px;border-bottom:2px solid var(--rouge)}
+/* Mise en page « manuel » du cours */
+.ln{margin:2px 0}
+.ln-sp{height:9px}
+.ln-li{padding-inline-start:10px}
+.ln-head{font-weight:800;font-size:16.5px;margin:16px 0 6px;color:var(--rouge);
+  padding-inline-start:10px;border-inline-start:4px solid var(--rouge);border-radius:2px}
+.co{margin:7px 0;padding:9px 12px;border-radius:10px;border-inline-start:4px solid;font-size:15px}
+.co-def{background:#eef4ff;border-color:#3b82f6}
+.co-meth{background:#f3efff;border-color:#8b5cf6}
+.co-ex{background:#eefaf1;border-color:#16a34a}
+.co-warn{background:#fff7e8;border-color:#f59e0b}
+.co-mem{background:#fdeeee;border-color:#e11d48;font-weight:700}
+.co-note{background:#f4f6fa;border-color:#94a3b8}
+/* Équations KaTeX : îlot LTR même dans un texte arabe, formules larges défilables */
+.katex{direction:ltr;unicode-bidi:isolate;font-size:1.06em}
+.katex-display{margin:8px 0;overflow-x:auto;overflow-y:hidden;padding:2px 0}
+.katex-display>.katex{white-space:nowrap}
+.ex-card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);border:1px solid var(--line);
+  padding:16px;margin-bottom:12px}
+.ex-q{font-size:16px;font-weight:600;line-height:1.7;white-space:pre-wrap}
+.ex-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.correction{margin-top:14px;padding:14px;border-radius:13px;background:#f5fbf7;border:1px solid #d9efe4;
+  line-height:1.75;font-size:14.5px;white-space:pre-wrap}
+.correction .sol{margin-top:10px;font-weight:800;color:#0a8a56}
+.stars{color:#f0a500;letter-spacing:1px;font-size:13px}
+/* ── Sujet officiel (style devoirat) ─────── */
+.devoir-entete{padding:0;margin-bottom:14px;border:2.5px solid var(--ink);border-radius:12px;overflow:hidden;background:var(--card)}
+.dv-top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:10px 14px;border-bottom:2px solid var(--ink);background:#fafbff}
+.dv-etab{display:flex;flex-direction:column;line-height:1.35}
+.dv-etab b{font-weight:800;font-size:13px}
+.dv-etab span{color:var(--muted);font-size:11px;font-weight:600}
+.dv-annee{display:flex;flex-direction:column;text-align:center;font-size:11px;color:var(--muted);font-weight:700}
+.dv-annee b{font-size:13px;color:var(--ink)}
+.dv-titre{text-align:center;font-weight:800;font-size:17px;padding:12px 14px 6px}
+.dv-barre{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;font-size:12.5px;font-weight:700;
+  color:var(--muted);padding:2px 14px 10px;border-bottom:1px dashed var(--line)}
+.dv-nom{font-size:12.5px;font-weight:700;color:var(--muted);padding:10px 14px;letter-spacing:.2px}
+.dv-footer{text-align:center;font-weight:800;font-size:15px;margin:6px 0 2px;color:var(--rouge)}
+.ex-fig{display:flex;justify-content:center;margin-top:12px}
+/* Fond toujours blanc → on force un trait/texte sombre pour que currentColor reste lisible en mode sombre aussi */
+.ex-fig svg{width:min(100%,330px);height:auto;background:#fff;color:#141b2d;border:1px solid var(--line);border-radius:12px;padding:10px;direction:ltr}
+.lesson .ex-fig svg{color:#141b2d}
+.answer-in{width:100%;margin-top:12px;padding:12px 14px;border-radius:12px;border:1.5px solid var(--line);
+  font-size:15px;font-family:inherit;background:#fafbff}
+.answer-in:focus{outline:none;border-color:var(--rouge)}
+
+/* ── Onboarding ─────────────────────────── */
+.onb{min-height:100dvh;display:flex;flex-direction:column;justify-content:center;gap:18px;padding:24px 20px;max-width:760px;margin:0 auto}
+.onb-hero{text-align:center;margin-bottom:6px}
+.onb-hero .big{font-size:52px}
+.onb-hero h1{font-size:26px;margin:6px 0 4px}
+.onb-hero p{color:var(--muted);margin:0;font-size:15px}
+.pick-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.pick{padding:14px;border-radius:14px;background:#fff;border:2px solid var(--line);font-weight:700;font-size:14.5px;text-align:center;transition:.12s}
+.pick.on{border-color:var(--rouge);background:#fff0f1;color:var(--rouge)}
+.pick small{display:block;color:var(--muted);font-weight:600;font-size:12px;margin-top:2px}
+.pick.on small{color:var(--rouge)}
+
+/* ── Bottom nav ─────────────────────────── */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:25;background:#fff;border-top:1px solid var(--line);
+  display:flex;justify-content:space-around;padding:8px 6px calc(8px + env(safe-area-inset-bottom));box-shadow:0 -6px 20px rgba(20,27,45,.06)}
+.nav-i{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);font-size:11px;font-weight:700;padding:4px 12px;border-radius:12px}
+.nav-i .ni{font-size:21px}
+.nav-i.on{color:var(--rouge)}
+
+/* ── Floating tutor button ──────────────── */
+.fab-tutor{position:fixed;inset-inline-end:16px;bottom:calc(78px + env(safe-area-inset-bottom));z-index:30;
+  width:62px;height:62px;border-radius:50%;background:linear-gradient(135deg,var(--rouge),#ff5a67);
+  box-shadow:var(--shadow-lg);display:grid;place-items:center;color:#fff}
+.fab-tutor .fab-emoji{font-size:29px}
+.fab-pulse{position:absolute;inset:0;border-radius:50%;box-shadow:0 0 0 0 rgba(231,0,19,.5);animation:pulse 2.2s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 16px rgba(231,0,19,0)}100%{box-shadow:0 0 0 0 rgba(231,0,19,0)}}
+
+/* ── Tutor panel ────────────────────────── */
+.tutor-panel{position:fixed;z-index:40;background:#fff;display:flex;flex-direction:column;box-shadow:var(--shadow-lg);
+  inset-inline-end:16px;bottom:calc(78px + env(safe-area-inset-bottom));width:min(420px,calc(100vw - 32px));
+  height:min(70vh,560px);border-radius:22px;overflow:hidden;border:1px solid var(--line)}
+.tutor-panel[hidden]{display:none}
+.tutor-panel.full{inset:0;width:100%;height:100dvh;border-radius:0;max-width:100%}
+.tutor-head{background:linear-gradient(135deg,var(--rouge),#ff4757);color:#fff;padding:13px 15px;display:flex;
+  align-items:center;justify-content:space-between}
+.tutor-id{display:flex;align-items:center;gap:10px}
+.tutor-ava{font-size:26px;background:#fff;width:40px;height:40px;border-radius:11px;display:grid;place-items:center}
+.tutor-id strong{display:block;font-size:15px}
+.tutor-id small{opacity:.9;font-size:12px}
+.tutor-head-btns{display:flex;gap:4px}
+.ico-btn{color:#fff;font-size:18px;width:34px;height:34px;border-radius:9px}
+.ico-btn:active{background:rgba(255,255,255,.2)}
+.tutor-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:#f7f8fc}
+.msg{max-width:85%;padding:11px 14px;border-radius:16px;font-size:14.5px;line-height:1.6;white-space:pre-wrap;word-wrap:break-word}
+.msg.bot{background:#fff;border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:5px}
+.msg.me{background:var(--rouge);color:#fff;align-self:flex-end;border-bottom-right-radius:5px}
+.msg.bot .speak{margin-top:7px;font-size:12px;font-weight:800;color:var(--rouge);display:inline-flex;align-items:center;gap:5px}
+.typing{display:inline-flex;gap:4px;padding:4px 0}
+.typing i{width:7px;height:7px;background:#c3c9da;border-radius:50%;animation:blink 1.2s infinite}
+.typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.3}40%{opacity:1}}
+.tutor-input{display:flex;align-items:flex-end;gap:8px;padding:10px;border-top:1px solid var(--line);background:#fff}
+.tutor-input textarea{flex:1;border:1.5px solid var(--line);border-radius:14px;padding:10px 12px;font-size:15px;
+  font-family:inherit;resize:none;max-height:110px;background:#fafbff}
+.tutor-input textarea:focus{outline:none;border-color:var(--rouge)}
+.mic-btn,.send-btn{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-size:20px;flex:none}
+.mic-btn{background:#eef1fb}
+.mic-btn.rec{background:var(--rouge);color:#fff;animation:recpulse 1s infinite}
+@keyframes recpulse{50%{filter:brightness(1.25)}}
+.send-btn{background:var(--rouge);color:#fff}
+.voice-hint{font-size:12px;color:var(--muted);text-align:center;padding:0 12px 8px;min-height:2px}
+
+/* ── Empty / loading ────────────────────── */
+.empty{text-align:center;color:var(--muted);padding:40px 20px}
+.empty .big{font-size:40px;margin-bottom:8px}
+.skeleton{background:linear-gradient(90deg,#eef1f7 25%,#e3e8f2 50%,#eef1f7 75%);background-size:200% 100%;
+  animation:sk 1.2s infinite;border-radius:14px;height:64px;margin-bottom:10px}
+@keyframes sk{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+.toast{position:fixed;bottom:calc(90px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
+  background:var(--ink);color:#fff;padding:11px 18px;border-radius:12px;font-size:14px;font-weight:600;z-index:60;
+  box-shadow:var(--shadow-lg);max-width:88vw;text-align:center}
+
+/* ── Quiz chronométré ───────────────────── */
+.quiz-bar{height:8px;border-radius:999px;background:var(--line);overflow:hidden;margin:10px 0 16px}
+.quiz-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--rouge),#ff5a67);transition:width 1s linear}
+.quiz-head{display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:14px;color:var(--muted)}
+.quiz-head .qt{color:var(--rouge);font-size:16px}
+.quiz-score{text-align:center;padding:34px 16px}
+.quiz-score .big{font-size:56px}
+.quiz-score h2{margin:10px 0 4px;font-size:24px}
+.quiz-score p{color:var(--muted);font-weight:600;margin:4px 0 0}
+
+/* ── Mode sombre ────────────────────────── */
+body.dark{--bg:#0f1420;--card:#1a2230;--ink:#e8ecf6;--muted:#94a1ba;--line:#2a3348;
+  --shadow:0 6px 22px rgba(0,0,0,.35);--shadow-lg:0 14px 40px rgba(0,0,0,.55)}
+body.dark .tab,body.dark .pick,body.dark .btn.ghost,body.dark .bottomnav,body.dark .tutor-input,body.dark .msg.bot{background:var(--card);color:var(--ink);border-color:var(--line)}
+body.dark .tab.active{background:var(--rouge);color:#fff;border-color:var(--rouge)}
+body.dark .pick.on{background:#33141d;border-color:var(--rouge);color:#ff8a93}
+body.dark .pick.on small{color:#ff8a93}
+body.dark .row-num,body.dark .btn.soft,body.dark .mic-btn{background:#242e46;color:#ff6b76}
+body.dark .tri-tag{background:#242e46;color:#93a5ff}
+body.dark .badge.fr{background:#242e46;color:#93a5ff}
+body.dark .badge.ar,body.dark .badge.done{background:#0f2c20;color:#3ecf8e}
+body.dark .badge.diff{background:#33250d;color:#ffb84d}
+body.dark .correction{background:#122318;border-color:#1e3a2a}
+body.dark .correction .sol{color:#3ecf8e}
+body.dark .answer-in,body.dark .tutor-input textarea{background:#131a29;color:var(--ink);border-color:var(--line)}
+body.dark .tutor-msgs{background:#121826}
+body.dark .tutor-panel{border-color:var(--line)}
+body.dark .skeleton{background:linear-gradient(90deg,#1a2230 25%,#232d40 50%,#1a2230 75%);background-size:200% 100%}
+/* Encadrés de cours en mode sombre : fonds teintés foncés + texte clair lisible */
+body.dark .co-def{background:#15233d;border-color:#3b82f6}
+body.dark .co-meth{background:#221a3a;border-color:#8b5cf6}
+body.dark .co-ex{background:#12271a;border-color:#16a34a}
+body.dark .co-warn{background:#2c2410;border-color:#f59e0b}
+body.dark .co-mem{background:#2e1620;border-color:#e11d48}
+body.dark .co-note{background:#1c2333;border-color:#94a3b8}
+body.dark .dv-top{background:#1c2333}
+body.dark .devoir-entete{border-color:var(--muted)}
+
+@media(min-width:560px){.grid{grid-template-columns:repeat(3,1fr)}.pick-grid{grid-template-columns:repeat(3,1fr)}}

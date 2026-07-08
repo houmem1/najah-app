@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="fr" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Najah — Politique de confidentialité</title>
+<style>
+  :root { --rouge:#E70013; --ink:#1f2430; --muted:#5b6472; --bg:#f7f8fb; --card:#fff; --bd:#e6e9f0; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif; line-height:1.6; }
+  .wrap { max-width:760px; margin:0 auto; padding:28px 20px 60px; }
+  header { display:flex; align-items:center; gap:12px; margin-bottom:6px; }
+  header .logo { font-size:34px; }
+  h1 { font-size:24px; margin:14px 0 2px; }
+  h2 { font-size:18px; margin:26px 0 8px; color:var(--rouge); }
+  .card { background:var(--card); border:1px solid var(--bd); border-radius:14px; padding:18px 20px; margin-top:16px; }
+  .muted { color:var(--muted); }
+  .maj { font-size:13px; color:var(--muted); }
+  ul { padding-inline-start:20px; }
+  li { margin:4px 0; }
+  a { color:var(--rouge); }
+  .ar { direction:rtl; text-align:right; font-size:15px; }
+  code { background:#eef1f8; padding:1px 6px; border-radius:6px; font-size:13px; }
+  footer { margin-top:34px; font-size:13px; color:var(--muted); text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><span class="logo">🧑‍🏫</span><div><strong style="font-size:20px">Najah — نجاح</strong><div class="maj">Politique de confidentialité</div></div></header>
+  <p class="maj">Dernière mise à jour : 7 juillet 2026</p>
+
+  <div class="card ar">
+    <strong>باختصار:</strong> منصّة نجاح مجّانية للتلاميذ التونسيين. لا نطلب اسمك ولا صورتك ولا حسابا. نحفظ فقط تقدّمك في التمارين لمساعدتك، ويمكن لوليّ الأمر إضافة بريده الإلكتروني اختياريّا لتلقّي تقرير أسبوعي. لا نبيع بياناتك ولا نعرض إعلانات.
+  </div>
+
+  <div class="card">
+    <p><strong>En bref :</strong> Najah est une plateforme éducative gratuite pour les élèves tunisiens. <strong>Aucun compte, aucun nom réel, aucune photo</strong> ne sont requis. Nous enregistrons uniquement la progression d'apprentissage pour aider l'élève. Un parent peut, s'il le souhaite, ajouter son email pour recevoir un bilan. <strong>Nous ne vendons aucune donnée et n'affichons aucune publicité.</strong></p>
+  </div>
+
+  <h2>1. Qui sommes-nous ?</h2>
+  <p>Najah est un service éducatif indépendant destiné aux élèves du primaire au baccalauréat en Tunisie. Contact : <a href="mailto:s.houmem@gmail.com">s.houmem@gmail.com</a>.</p>
+
+  <h2>2. Quelles données collectons-nous ?</h2>
+  <ul>
+    <li><strong>Identifiant anonyme</strong> : un identifiant aléatoire est généré sur l'appareil (aucun lien avec ton identité). Il sert à retrouver ta progression.</li>
+    <li><strong>Classe et section</strong> choisies dans l'application (ex. « 7ème année de base »).</li>
+    <li><strong>Progression d'apprentissage</strong> : résultats des exercices et quiz (réussi/à revoir), matières et chapitres travaillés, régularité. Cela permet le tableau de bord et les conseils de révision.</li>
+    <li><strong>Email du parent</strong> : <em>uniquement si vous le saisissez volontairement</em> dans l'app, pour l'envoi d'un bilan hebdomadaire. Vous pouvez le retirer à tout moment en vidant le champ.</li>
+    <li><strong>Questions au tuteur IA</strong> : le texte (ou la voix transcrite) de tes questions est envoyé à un service d'intelligence artificielle pour générer une réponse pédagogique.</li>
+    <li><strong>Préférences locales</strong> (thème, points, série) stockées dans ton navigateur.</li>
+  </ul>
+  <p class="muted">Nous ne collectons <strong>pas</strong> : nom, adresse, numéro de téléphone de l'élève, photos, contacts, localisation précise.</p>
+
+  <h2>3. Pourquoi ?</h2>
+  <ul>
+    <li>Fournir les cours, exercices, devoirs et le tuteur IA.</li>
+    <li>Suivre la progression et proposer des révisions personnalisées.</li>
+    <li>Envoyer, si demandé, un bilan hebdomadaire au parent.</li>
+  </ul>
+  <p>Nous n'utilisons jamais ces données à des fins publicitaires et ne les revendons pas.</p>
+
+  <h2>4. Prestataires techniques</h2>
+  <p>Pour faire fonctionner le service, certaines données transitent par des prestataires, uniquement pour les finalités ci-dessus :</p>
+  <ul>
+    <li><strong>Supabase</strong> (base de données et hébergement des contenus/progression).</li>
+    <li><strong>Netlify</strong> (hébergement du site).</li>
+    <li><strong>n8n</strong> (automatisations : tuteur, transcription vocale, bilan parent).</li>
+    <li><strong>Mistral AI</strong> (génération des réponses du tuteur) et <strong>Groq</strong> (transcription de la voix en texte).</li>
+    <li><strong>Google (Gmail)</strong> pour l'envoi de l'email de bilan au parent.</li>
+  </ul>
+  <p class="muted">Évite de communiquer au tuteur des informations personnelles sensibles (ce sont des questions scolaires).</p>
+
+  <h2>5. Enfants et mineurs</h2>
+  <p>Najah s'adresse à des élèves, dont des mineurs. Nous appliquons la <strong>minimisation des données</strong> : aucun nom réel ni photo, identifiant anonyme, pas de messagerie entre utilisateurs, pas de publicité, pas de profilage commercial. Un parent ou tuteur légal peut demander la consultation ou la <strong>suppression</strong> des données liées à un appareil en écrivant à <a href="mailto:s.houmem@gmail.com">s.houmem@gmail.com</a>.</p>
+
+  <h2>6. Conservation</h2>
+  <p>Les données de progression sont conservées tant que l'app est utilisée, afin d'assurer le suivi. Elles sont supprimées sur simple demande, ou automatiquement en cas d'inactivité prolongée. L'email du parent est supprimé dès qu'il est retiré de l'app.</p>
+
+  <h2>7. Sécurité</h2>
+  <p>Les échanges se font en HTTPS. L'accès aux données est restreint et l'identifiant anonyme n'est pas devinable. Aucun système n'est infaillible, mais nous limitons volontairement les données collectées pour réduire les risques.</p>
+
+  <h2>8. Tes droits</h2>
+  <p>Tu peux à tout moment : effacer tes données locales (réglages du navigateur / « effacer les données du site »), retirer l'email du parent, ou demander la suppression de ta progression via <a href="mailto:s.houmem@gmail.com">s.houmem@gmail.com</a>.</p>
+
+  <h2>9. Modifications</h2>
+  <p>Cette politique peut évoluer. La date de mise à jour en haut de page indique la version en vigueur.</p>
+
+  <h2>10. Contact</h2>
+  <p>Pour toute question sur la vie privée : <a href="mailto:s.houmem@gmail.com">s.houmem@gmail.com</a>.</p>
+
+  <footer>Najah — نجاح · Prof particulier gratuit, 24h/24 · 100% gratuit · Programme officiel tunisien 🇹🇳</footer>
+</div>
+</body>
+</html>
