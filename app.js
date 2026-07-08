@@ -1481,7 +1481,14 @@ function autoGrow() { inputEl.style.height = "auto"; inputEl.style.height = Math
 const attachBtn = document.getElementById("attach-btn");
 const fileInput = document.getElementById("tutor-file");
 if (attachBtn && fileInput) {
-  attachBtn.onclick = () => fileInput.click();
+  attachBtn.onclick = () => {
+    // Import d'exercices : fonctionnalité Premium (comme le tuteur lui-même).
+    if (!isPremium()) {
+      botBubble("🌟 استيراد التمارين خاص بالمشتركين!\nL'import d'exercices (PDF/Word) fait partie du Premium (" + C.PREMIUM.prixMois + "/mois) : tuteur illimité, exercices, quiz et devoirs corrigés. Active ton code dans Profil 👤.");
+      return;
+    }
+    fileInput.click();
+  };
   fileInput.onchange = async () => {
     const f = fileInput.files && fileInput.files[0];
     fileInput.value = "";
