@@ -160,6 +160,34 @@ function addPoints(n, why) {
 function isPremium() {
   return !!(ST.premium && ST.premium.expire && new Date(ST.premium.expire) > new Date());
 }
+// Carte paywall : seuls les COURS sont gratuits — le reste est Premium.
+function paywallHtml(titre, detail) {
+  return `<div class="card" style="padding:22px;text-align:center;border:1.5px solid var(--warn)">
+    <div style="font-size:42px">🌟</div>
+    <p style="font-weight:800;margin:10px 0 4px;font-size:16px">${titre}</p>
+    <p style="color:var(--muted);font-size:13.5px;font-weight:600;margin:0 0 6px">${detail}</p>
+    <p style="color:var(--muted);font-size:13px;font-weight:600;margin:0">Les cours restent 100% gratuits 📖</p>
+    <div class="btn-row" style="justify-content:center"><button class="btn" data-gopremium>Passer Premium — ${esc((C.PREMIUM&&C.PREMIUM.prixMois)||"")}/mois 🌟</button></div>
+  </div>`;
+}
+function wirePaywall(root) {
+  (root || document).querySelectorAll("[data-gopremium]").forEach(b => b.onclick = () => go({ name: "profil" }));
+}
+// Corrigés d'exercices : verrouillés côté serveur, récupérés via RPC avec le code Premium.
+async function chargerCorrigesExos(ids) {
+  const map = {};
+  if (!ids.length || !isPremium()) return map;
+  try {
+    const r = await fetch(REST + "rpc/edu_corriges_exercices", {
+      method: "POST",
+      headers: Object.assign({ "Content-Type": "application/json" }, H),
+      body: JSON.stringify({ p_ids: ids, p_code: (ST.premium && ST.premium.code) || "" }),
+    });
+    const res = await r.json();
+    if (res && res.ok) (res.corriges || []).forEach(c => { map[c.id] = c.corrige; });
+  } catch {}
+  return map;
+}
 async function rpcActiverCode(code) {
   const r = await fetch(REST + "rpc/edu_activer_code", {
     method: "POST",
@@ -243,9 +271,12 @@ async function revaliderPremium() {
 }
 function quotaMsgOk() {
   if (isPremium()) return true;
+  // Tuteur réservé au Premium ; quelques questions de découverte par jour si configurées.
+  const gratuits = (C.PREMIUM && C.PREMIUM.msgGratuitsParJour) || 0;
+  if (!gratuits) return false;
   const t = todayKey();
   if (!ST.msg || ST.msg.d !== t) ST.msg = { d: t, n: 0 };
-  return ST.msg.n < ((C.PREMIUM && C.PREMIUM.msgGratuitsParJour) || 10);
+  return ST.msg.n < gratuits;
 }
 function compterMsg() {
   const t = todayKey();
@@ -464,7 +495,7 @@ async function renderHome() {
     ${!isPremium() ? `<button type="button" class="card" id="home-prem" style="width:100%;text-align:start;padding:15px 16px;margin-bottom:6px;display:flex;gap:13px;align-items:center;border:1.5px solid var(--rouge);cursor:pointer;font:inherit;color:inherit">
       <div style="font-size:30px">🌟</div>
       <div style="flex:1"><b style="font-size:15px">Passer Premium</b>
-        <div style="color:var(--muted);font-size:13px;font-weight:600">Corrigés des devoirs + tuteur illimité — ${esc((C.PREMIUM&&C.PREMIUM.prixMois)||"")}/mois</div></div>
+        <div style="color:var(--muted);font-size:13px;font-weight:600">Exercices, quiz, devoirs + tuteur IA illimité — ${esc((C.PREMIUM&&C.PREMIUM.prixMois)||"")}/mois</div></div>
       <span class="btn" style="pointer-events:none">Voir ›</span>
     </button>` : ""}
     <div class="card" style="padding:16px;margin-bottom:6px;display:flex;gap:13px;align-items:center">
@@ -592,8 +623,15 @@ async function renderChapitre(chap, mat, tab) {
       <span class="arrow">›</span></button>`).join("");
     body.querySelectorAll("[data-dev]").forEach(b => b.onclick = () => go({ name: "devoir", dev: b.dataset.dev }));
   } else {
-    const exos = await api(`edu_exercices?select=id,enonce,corrige,difficulte,type,langue&chapitre_id=eq.${chap}&valide=is.true&order=difficulte`);
+    if (!isPremium()) {
+      body.innerHTML = paywallHtml("✏️ Les exercices sont réservés au Premium",
+        "Des centaines d'exercices corrigés pas à pas, avec schémas et gradient de difficulté.");
+      wirePaywall(body); return;
+    }
+    const exos = await api(`edu_exercices?select=id,enonce,difficulte,type,langue&chapitre_id=eq.${chap}&valide=is.true&order=difficulte`);
     if (!exos.length) { body.innerHTML = emptyBox("Exercices bientôt disponibles."); return; }
+    const cors = await chargerCorrigesExos(exos.map(e => e.id));
+    exos.forEach(e => { e.corrige = cors[e.id] || null; });
     body.innerHTML = exos.map((e, i) => exoCard(e, i)).join("");
     body.querySelectorAll("[data-reveal]").forEach(b => b.onclick = () => {
       const id = b.dataset.reveal;
@@ -686,9 +724,14 @@ async function renderDevoir(id) {
     <div id="d-body"><div class="skeleton"></div><div class="skeleton"></div></div></div>` + bottomnav("devoirs");
   wireChrome();
   document.querySelector("[data-back]").onclick = () => history.length > 1 ? window.history.back() : go({ name: "devoirs" });
+  const body = document.getElementById("d-body");
+  if (!isPremium()) {
+    body.innerHTML = paywallHtml("📝 Les devoirs sont réservés au Premium",
+      "Sujets au format officiel (contrôles + synthèses) avec chrono, schémas et corrigés détaillés.");
+    wirePaywall(body); return;
+  }
   const rows = await api(`edu_devoirs?select=id,niveau_id,matiere_id,type,trimestre,titre,duree_min,bareme,enonce,langue&id=eq.${id}`);
   const d = rows[0];
-  const body = document.getElementById("d-body");
   if (!d) { body.innerHTML = emptyBox("Devoir introuvable."); return; }
   document.querySelector("[data-back]").onclick = () => go({ name: "devoirsList", mat: d.matiere_id });
   const exs = (d.enonce && d.enonce.exercices) || [];
@@ -751,9 +794,9 @@ async function renderDevoir(id) {
   body.querySelectorAll("[data-cor]").forEach(b => b.onclick = async () => {
     if (!isPremium()) {
       document.getElementById("paywall-dev").innerHTML = `<div class="card" style="padding:16px;margin-bottom:14px;border:1.5px solid var(--warn)">
-        <b>🌟 Les corrigés des devoirs sont réservés au Premium</b>
+        <b>🌟 Les devoirs et leurs corrigés sont réservés au Premium</b>
         <div style="color:var(--muted);font-size:13.5px;font-weight:600;margin-top:6px">
-          ${esc(C.PREMIUM.prixMois)}/mois ou ${esc(C.PREMIUM.prixTrimestre)}/trimestre — corrigés illimités + tuteur illimité.</div>
+          ${esc(C.PREMIUM.prixMois)}/mois ou ${esc(C.PREMIUM.prixTrimestre)}/trimestre — exercices, quiz, devoirs corrigés + tuteur IA illimité.</div>
         <div class="btn-row"><button class="btn" id="go-prem">Activer un code</button></div></div>`;
       document.getElementById("go-prem").onclick = () => go({ name: "profil" });
       document.getElementById("paywall-dev").scrollIntoView({ behavior: "smooth" });
@@ -811,13 +854,20 @@ async function renderQuiz(mat) {
   wireChrome();
   document.querySelector("[data-back]").onclick = () => { stopQuizTimer(); go({ name: "quizPick" }); };
 
-  let pool = await api(`edu_exercices?select=id,enonce,corrige,difficulte,langue,sections&niveau_id=eq.${ST.niveau}&matiere_id=eq.${mat}&valide=is.true&limit=80`);
-  pool = pool.filter(e => okSection(e.sections));
   const body = document.getElementById("qz-body");
+  if (!isPremium()) {
+    body.innerHTML = paywallHtml("⚡ Le quiz chronométré est réservé au Premium",
+      "Bats ton record sur des centaines de questions corrigées, matière par matière.");
+    wirePaywall(body); return;
+  }
+  let pool = await api(`edu_exercices?select=id,enonce,difficulte,langue,sections&niveau_id=eq.${ST.niveau}&matiere_id=eq.${mat}&valide=is.true&limit=80`);
+  pool = pool.filter(e => okSection(e.sections));
   if (pool.length < 3) { body.innerHTML = emptyBox("Pas assez d'exercices pour un quiz dans cette matière."); return; }
   // Mélange (Fisher–Yates) puis sélection
   for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
   const qs = pool.slice(0, Math.min(QUIZ_N, pool.length));
+  const corsQz = await chargerCorrigesExos(qs.map(e => e.id));
+  qs.forEach(e => { e.corrige = corsQz[e.id] || null; });
 
   let idx = 0, score = 0;
   const step = () => {
@@ -1222,7 +1272,7 @@ async function sendMessage(text) {
   text = (text || "").trim();
   if (!text || sending) return;
   if (!quotaMsgOk()) {
-    botBubble("🌟 لقد استعملت أسئلتك المجانية لليوم!\nTu as utilisé tes " + (C.PREMIUM.msgGratuitsParJour || 10) + " questions gratuites du jour. Avec un code Premium (" + C.PREMIUM.prixMois + "/mois), le tuteur devient illimité — active ton code dans Profil 👤.");
+    botBubble("🌟 المعلّم الذكي خاص بالمشتركين!\nLe tuteur Najah IA est réservé au Premium (" + C.PREMIUM.prixMois + "/mois) : questions illimitées, exercices, quiz et devoirs corrigés. Active ton code dans Profil 👤 — les cours restent gratuits 📖.");
     return;
   }
   compterMsg();

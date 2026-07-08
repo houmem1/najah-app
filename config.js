@@ -15,7 +15,8 @@ window.CONFIG = {
   PREMIUM: {
     prixMois: "30 DT",
     prixTrimestre: "80 DT",
-    msgGratuitsParJour: 10,
+    // 0 = tuteur réservé au Premium (mettre p.ex. 3 pour offrir des questions découverte/jour)
+    msgGratuitsParJour: 0,
     // Webhook n8n « Premium - Paiement Flouci » (déclaration du transfert Flouci).
     declareUrl: "https://slhoumem.app.n8n.cloud/webhook/premium-flouci",
     // Paiement Flouci par TRANSFERT : ton numéro Flouci (ou identifiant de réception).
