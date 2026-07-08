@@ -1475,6 +1475,57 @@ function webSpeechSTT() {
 /* ── Auto-grow textarea ─────────────────────────────────────────── */
 function autoGrow() { inputEl.style.height = "auto"; inputEl.style.height = Math.min(inputEl.scrollHeight, 110) + "px"; }
 
+/* ── Import d'exercice (PDF / DOCX) → texte préchargé dans le tuteur ──
+   Extraction 100% locale (pdf.js / mammoth) : le fichier ne quitte pas
+   l'appareil, seul le texte extrait est envoyé au tuteur avec la question. */
+const attachBtn = document.getElementById("attach-btn");
+const fileInput = document.getElementById("tutor-file");
+if (attachBtn && fileInput) {
+  attachBtn.onclick = () => fileInput.click();
+  fileInput.onchange = async () => {
+    const f = fileInput.files && fileInput.files[0];
+    fileInput.value = "";
+    if (!f) return;
+    if (f.size > 15 * 1024 * 1024) { toast("Fichier trop lourd (max 15 Mo)."); return; }
+    vHint.textContent = "⏳ Lecture de « " + f.name + " »…";
+    try {
+      let txt = "";
+      if (/\.pdf$/i.test(f.name) || f.type === "application/pdf") txt = await extrairePdf(f);
+      else if (/\.docx$/i.test(f.name) || (f.type || "").includes("wordprocessingml")) txt = await extraireDocx(f);
+      else { vHint.textContent = ""; toast("Format non pris en charge — envoie un PDF ou un Word (.docx)."); return; }
+      txt = (txt || "").replace(/[ \t]+/g, " ").replace(/\s*\n\s*/g, "\n").trim();
+      vHint.textContent = "";
+      if (!txt) { toast("Aucun texte lisible (document scanné ?) — tape l'énoncé ou dicte-le au micro 🎙️."); return; }
+      const MAX = 3500;
+      const coupe = txt.length > MAX;
+      inputEl.value = "📎 Exercice importé (" + f.name + ") :\n" + txt.slice(0, MAX) + (coupe ? "\n[…]" : "") +
+        "\n\nAide-moi à résoudre cet exercice étape par étape.";
+      autoGrow(); inputEl.focus();
+      toast(coupe ? "Texte importé (raccourci) — vérifie puis envoie ➤" : "Exercice importé — vérifie puis envoie ➤");
+    } catch (e) {
+      vHint.textContent = "";
+      toast("Impossible de lire ce fichier — réessaie ou tape l'énoncé.");
+    }
+  };
+}
+async function extrairePdf(f) {
+  if (!window.pdfjsLib) throw new Error("pdfjs indisponible");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+  const doc = await pdfjsLib.getDocument({ data: await f.arrayBuffer() }).promise;
+  let out = "";
+  const nb = Math.min(doc.numPages, 10); // 10 pages max : largement assez pour un exercice
+  for (let p = 1; p <= nb; p++) {
+    const tc = await (await doc.getPage(p)).getTextContent();
+    out += tc.items.map(i => i.str).join(" ") + "\n";
+  }
+  return out;
+}
+async function extraireDocx(f) {
+  if (!window.mammoth) throw new Error("mammoth indisponible");
+  const res = await mammoth.extractRawText({ arrayBuffer: await f.arrayBuffer() });
+  return res.value || "";
+}
+
 /* ══════════════════════════════════════════════════════════════════
    ÉVÉNEMENTS GLOBAUX
    ══════════════════════════════════════════════════════════════════ */
