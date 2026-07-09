@@ -43,6 +43,7 @@ const MAT = {
   10:{fr:"Gestion",ar:"التصرّف",e:"📊",c:"#0d97b0"},
   11:{fr:"Technologie",ar:"التكنولوجيا",e:"⚙️",c:"#e5722b"},
   12:{fr:"Éducation islamique",ar:"التربية الإسلامية",e:"🕌",c:"#3f8f5c"},
+  13:{fr:"Éveil scientifique",ar:"الإيقاظ العلمي",e:"🔬",c:"#e0993a"},
 };
 const TRI = {1:"Trimestre 1",2:"Trimestre 2",3:"Trimestre 3"};
 
@@ -404,10 +405,12 @@ async function renderYearChoice() {
     try { sections = await cached("sections", () => api("edu_sections?select=code,nom_fr,nom_ar,cycle_niveaux,ordre&order=ordre")); ST._sections = sections; }
     catch { sections = []; }
   }
+  const primaire = niveaux.filter(n => n.cycle === "primaire");
   const college = niveaux.filter(n => n.cycle === "college");
   const lycee = niveaux.filter(n => n.cycle === "secondaire");
   const grille = arr => `<div class="pick-grid">${arr.map(n => `<button class="pick${ST.niveau===n.id?' on':''}" data-year="${n.id}">${esc(n.nom_fr)}<small${dirAttr(n.nom_ar)}>${esc(n.nom_ar)}</small></button>`).join("")}</div>`;
   document.getElementById("yc-body").innerHTML =
+    (primaire.length ? `<div class="section-title">🎒 Primaire</div>${grille(primaire)}` : "") +
     `<div class="section-title">📖 Collège</div>${grille(college)}` +
     (lycee.length ? `<div class="section-title">🎓 Lycée</div>${grille(lycee)}` : "") +
     `<div id="yc-sec-wrap" hidden>
@@ -449,7 +452,7 @@ async function renderOnboarding() {
   const niveaux = await cached("niveaux", () => api("edu_niveaux?select=id,nom_fr,nom_ar,cycle&order=id"));
   ST._niveaux = niveaux;
   // Collège + Lycée (secondaire). Le primaire n'est pas encore couvert.
-  const affichables = niveaux.filter(n => n.cycle === "college" || n.cycle === "secondaire");
+  const affichables = niveaux.filter(n => n.cycle === "primaire" || n.cycle === "college" || n.cycle === "secondaire");
   const body = document.getElementById("onb-body");
   body.innerHTML = `<div class="section-title">📖 Ta classe</div>
     <div class="pick-grid" id="pk-niv">
