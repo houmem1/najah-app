@@ -1,6 +1,6 @@
 /* Service worker — NETWORK-FIRST : toujours la dernière version quand en ligne,
    cache uniquement en repli hors-ligne. Fini les versions figées en cache. */
-const CACHE = "najah-v40";
+const CACHE = "najah-v41";
 const SHELL = [
   "index.html", "styles.css", "app.js", "config.js",
   "manifest.webmanifest", "icon.svg", "icon-maskable.svg", "icon-app.png", "icon-192.png",
