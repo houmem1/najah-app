@@ -421,7 +421,7 @@ async function renderYearChoice() {
   const primaire = niveaux.filter(n => n.cycle === "primaire");
   const college = niveaux.filter(n => n.cycle === "college");
   const lycee = niveaux.filter(n => n.cycle === "secondaire");
-  const grille = arr => `<div class="pick-grid">${arr.map(n => `<button class="pick${ST.niveau===n.id?' on':''}" data-year="${n.id}">${esc(n.nom_fr)}<small${dirAttr(n.nom_ar)}>${esc(n.nom_ar)}</small></button>`).join("")}</div>`;
+  const grille = arr => `<div class="pick-grid">${arr.map(n => `<button class="pick cy-${esc(n.cycle)}${ST.niveau===n.id?' on':''}" data-year="${n.id}">${esc(n.nom_fr)}<small${dirAttr(n.nom_ar)}>${esc(n.nom_ar)}</small></button>`).join("")}</div>`;
   document.getElementById("yc-body").innerHTML =
     (primaire.length ? `<div class="section-title">🎒 Primaire</div>${grille(primaire)}` : "") +
     `<div class="section-title">📖 Collège</div>${grille(college)}` +
