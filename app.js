@@ -44,6 +44,7 @@ const MAT = {
   11:{fr:"Technologie",ar:"التكنولوجيا",e:"⚙️",c:"#e5722b"},
   12:{fr:"Éducation islamique",ar:"التربية الإسلامية",e:"🕌",c:"#3f8f5c"},
   13:{fr:"Éveil scientifique",ar:"الإيقاظ العلمي",e:"🔬",c:"#e0993a"},
+  14:{fr:"Matières sociales",ar:"المواد الاجتماعية",e:"🌍",c:"#7c5cbf"},
 };
 const TRI = {1:"Trimestre 1",2:"Trimestre 2",3:"Trimestre 3"};
 
@@ -54,26 +55,38 @@ const TRI = {1:"Trimestre 1",2:"Trimestre 2",3:"Trimestre 3"};
 const CACHE_TTL = 24 * 3600 * 1000;
 const CACHE_MAX = 80;              // ~80 réponses max (localStorage ≈ 5 Mo)
 const CACHE_CONTENU = /^edu_(chapitres|documents|matieres|niveaux|sections|exercices|devoirs)\?/;
+// Version de l'app (lue depuis app.js?v=NN) : chaque déploiement invalide le cache de
+// contenu — sinon un élève garderait 24h une liste de matières/chapitres périmée.
+const APP_V = (() => {
+  try { const s = document.querySelector('script[src*="app.js?v="]'); return s ? s.src.split("v=")[1] : "0"; } catch { return "0"; }
+})();
+// Purge des caches d'anciennes versions au démarrage.
+try {
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith("njc") && !k.startsWith("njc" + APP_V + ":")) localStorage.removeItem(k);
+  }
+} catch {}
 function cacheGet(k) {
   try {
-    const raw = localStorage.getItem("njc:" + k);
+    const raw = localStorage.getItem("njc" + APP_V + ":" + k);
     if (!raw) return null;
     const o = JSON.parse(raw);
-    if (Date.now() - o.t > CACHE_TTL) { localStorage.removeItem("njc:" + k); return null; }
+    if (Date.now() - o.t > CACHE_TTL) { localStorage.removeItem("njc" + APP_V + ":" + k); return null; }
     return o.d;
   } catch { return null; }
 }
 function cacheSet(k, d) {
   try {
     const keys = [];
-    for (let i = 0; i < localStorage.length; i++) { const key = localStorage.key(i); if (key && key.startsWith("njc:")) keys.push(key); }
+    for (let i = 0; i < localStorage.length; i++) { const key = localStorage.key(i); if (key && key.startsWith("njc" + APP_V + ":")) keys.push(key); }
     if (keys.length >= CACHE_MAX) {
       // éviction du plus ancien
       let oldest = null, oldestT = Infinity;
       keys.forEach(key => { try { const t = JSON.parse(localStorage.getItem(key)).t; if (t < oldestT) { oldestT = t; oldest = key; } } catch { localStorage.removeItem(key); } });
       if (oldest) localStorage.removeItem(oldest);
     }
-    localStorage.setItem("njc:" + k, JSON.stringify({ t: Date.now(), d }));
+    localStorage.setItem("njc" + APP_V + ":" + k, JSON.stringify({ t: Date.now(), d }));
   } catch {} // stockage plein : on continue sans cache
 }
 async function api(path) {
