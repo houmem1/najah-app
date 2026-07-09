@@ -23,6 +23,10 @@ window.CONFIG = {
     // L'élève t'envoie l'argent depuis son app Flouci, puis déclare le paiement.
     // ⚠️ REMPLIR avec ton numéro Flouci. Vide = bloc Flouci masqué.
     flouciNumero: "28 001 390",
+    // Paiement IZI (Banque Zitouna) par TRANSFERT : ton numéro/identifiant IZI de réception.
+    // L'élève t'envoie l'argent depuis son app IZI, puis déclare le paiement.
+    // ⚠️ REMPLIR avec ton numéro IZI. Vide = bloc IZI masqué.
+    iziNumero: "28 001 390",
     // Paiement D17 : numéro du portefeuille D17 (vide = option masquée).
     d17Numero: "",
     // Paiement Flouci API 100% automatique — nécessite un compte Flouci BUSINESS + jetons API.

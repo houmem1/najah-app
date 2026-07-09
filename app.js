@@ -1178,6 +1178,22 @@ function premiumBoxHtml() {
       <div class="btn-row"><button class="btn" id="flouci-send">Envoyer ma demande 💳</button></div>
     </div>`;
   }
+  // Paiement IZI (Banque Zitouna) par TRANSFERT + déclaration
+  if (P.iziNumero) {
+    achat += `<div style="margin-top:12px;padding:12px;border:1.5px dashed var(--line);border-radius:12px" id="izi-bloc">
+      <b>🟢 Payer par IZI (Banque Zitouna)</b>
+      <div style="color:var(--muted);font-size:13px;font-weight:600;margin:4px 0 8px">
+        1️⃣ Depuis ton application <b>IZI</b>, envoie <b>${esc(P.prixMois)}</b> (1 mois) ou <b>${esc(P.prixTrimestre)}</b> (3 mois) au
+        <b style="color:var(--rouge)">${esc(P.iziNumero)}</b><br>
+        2️⃣ Remplis ce formulaire — ton code arrive après vérification (quelques heures max).</div>
+      <select id="izi-plan" class="answer-in" style="margin-top:0">
+        <option value="mois">1 mois — ${esc(P.prixMois)}</option>
+        <option value="trimestre">3 mois — ${esc(P.prixTrimestre)}</option></select>
+      <input id="izi-contact" class="answer-in" placeholder="Ton email (pour recevoir le code)">
+      <input id="izi-ref" class="answer-in" placeholder="Référence / n° de la transaction IZI">
+      <div class="btn-row"><button class="btn soft" id="izi-send">Envoyer ma demande 🟢</button></div>
+    </div>`;
+  }
   if (P.d17Numero) {
     achat += `<div style="margin-top:12px;padding:12px;border:1.5px dashed var(--line);border-radius:12px" id="d17-bloc">
       <b>📮 Payer par D17</b>
@@ -1248,6 +1264,9 @@ function wirePremiumBox() {
   // Flouci transfert
   const fl = document.getElementById("flouci-send");
   if (fl) fl.onclick = () => declarerPaiement("flouci", "flouci-plan", "flouci-contact", "flouci-ref", "flouci-bloc", fl, "Envoyer ma demande 💳");
+  // IZI (Banque Zitouna) transfert
+  const izi = document.getElementById("izi-send");
+  if (izi) izi.onclick = () => declarerPaiement("izi", "izi-plan", "izi-contact", "izi-ref", "izi-bloc", izi, "Envoyer ma demande 🟢");
   // D17
   const d17 = document.getElementById("d17-send");
   if (d17) d17.onclick = () => declarerPaiement("d17", "d17-plan", "d17-contact", "d17-ref", "d17-bloc", d17, "Envoyer ma demande 📮");
