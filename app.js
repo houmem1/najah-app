@@ -146,6 +146,54 @@ function figHtml(svg) {
   if (!s.startsWith("<svg") || /<script|<foreignObject|on\w+\s*=|javascript:/i.test(s)) return "";
   return `<div class="ex-fig">${s}</div>`;
 }
+/* ── Devoirs : rendu tolérant aux variantes de schéma (épreuves bac officielles :
+   sous-parties, questions imbriquées, figures multiples, corrigés solution/solutions) ── */
+function dvQuestionsHtml(qs) {
+  if (!Array.isArray(qs) || !qs.length) return "";
+  return `<div class="dv-qs">` + qs.map(q => {
+    const t = typeof q === "string" ? q : (q.texte || q.enonce || q.question || "");
+    if (!t) return "";
+    const n = (q && typeof q === "object" && q.num) ? `<b>${esc(q.num)})</b> ` : "";
+    return `<div class="dv-q"${dirAttr(t)}>${n}${mathHtml(t)}</div>`;
+  }).join("") + `</div>`;
+}
+function dvPartiesHtml(ps) {
+  if (!Array.isArray(ps) || !ps.length) return "";
+  return ps.map(p => `<div class="dv-partie">`
+    + (p.titre ? `<div class="dv-partie-t"${dirAttr(p.titre)}>${esc(p.titre)}</div>` : "")
+    + (p.enonce ? `<div class="dv-q"${dirAttr(p.enonce)}>${mathHtml(p.enonce)}</div>` : "")
+    + figHtml(p.figure_svg)
+    + dvQuestionsHtml(p.questions)
+    + `</div>`).join("");
+}
+function dvFiguresHtml(figs) {
+  if (!Array.isArray(figs) || !figs.length) return "";
+  return figs.map(f => {
+    const svg = typeof f === "string" ? f : (f.svg || f.figure_svg || "");
+    if (!svg) return "";
+    const nom = (f && typeof f === "object" && f.nom) ? `<div class="dv-fig-t">${esc(f.nom)}</div>` : "";
+    return nom + figHtml(svg);
+  }).join("");
+}
+function dvExtraHtml(ex) {
+  return dvPartiesHtml(ex.parties) + dvPartiesHtml(ex.sous_parties) + dvQuestionsHtml(ex.questions);
+}
+function dvEnonceFigs(ex) {
+  return figHtml(ex.figure_svg) + dvFiguresHtml(ex.figures) + dvFiguresHtml(ex.figures_annexes);
+}
+function dvCorrigeToStr(c) {
+  if (typeof c.corrige === "string") return c.corrige;
+  const parts = [];
+  const push = x => {
+    if (typeof x === "string") parts.push(x);
+    else if (x && (x.texte || x.enonce)) parts.push((x.num ? x.num + ") " : "") + (x.texte || x.enonce));
+  };
+  if (Array.isArray(c.solutions)) c.solutions.forEach(push);
+  if (Array.isArray(c.solution)) c.solution.forEach(push);
+  if (typeof c.solution === "string") parts.push(c.solution);
+  if (!parts.length && typeof c.enonce === "string") parts.push(c.enonce);
+  return parts.join("\n\n") || "—";
+}
 // Rendu LaTeX : les segments $…$ (en ligne) et $$…$$ (bloc) sont rendus par
 // KaTeX, tout le reste est échappé. Repli sans KaTeX (hors-ligne 1ʳᵉ visite) : texte échappé.
 function mathHtml(txt) {
@@ -665,9 +713,9 @@ async function renderChapitre(chap, mat, tab) {
     const devs = await api(`edu_devoirs?select=id,type,trimestre,titre,duree_min,bareme,langue&niveau_id=eq.${ST.niveau}&matiere_id=eq.${mat}&valide=is.true${secFilter}&order=trimestre,type`);
     if (!devs.length) { body.innerHTML = emptyBox("Aucun devoir disponible pour cette matière."); return; }
     body.innerHTML = `<p style="color:var(--muted);font-size:12.5px;margin:2px 0 10px">📝 Les devoirs couvrent tout un trimestre de ${esc(m.fr)} (pas seulement ce chapitre).</p>` + devs.map(d => `<button class="row-card card" data-dev="${d.id}">
-      <span class="row-num">${d.type==='devoir_synthese'?'📗':'📘'}</span>
+      <span class="row-num">${d.type==='bac'?'🎓':d.type==='devoir_synthese'?'📗':'📘'}</span>
       <span class="row-main"><b${dirAttr(d.titre)}>${esc(d.titre)}</b>
-        <small>${TRI[d.trimestre]||''} · ${d.duree_min||'?'} min · ${esc(d.bareme||'')}</small></span>
+        <small>${d.type==='bac'?'🎓 Épreuve officielle du Bac':(TRI[d.trimestre]||'')} · ${d.duree_min||'?'} min · ${esc(d.bareme||'')}</small></span>
       <span class="arrow">›</span></button>`).join("");
     body.querySelectorAll("[data-dev]").forEach(b => b.onclick = () => go({ name: "devoir", dev: b.dataset.dev }));
   } else {
@@ -760,9 +808,9 @@ async function renderDevoirsList(mat) {
   const body = document.getElementById("dl-body");
   if (!devs.length) { body.innerHTML = emptyBox("Aucun devoir disponible."); return; }
   body.innerHTML = devs.map(d => `<button class="row-card card" data-dev="${d.id}">
-    <span class="row-num">${d.type==='devoir_synthese'?'📗':'📘'}</span>
+    <span class="row-num">${d.type==='bac'?'🎓':d.type==='devoir_synthese'?'📗':'📘'}</span>
     <span class="row-main"><b${dirAttr(d.titre)}>${esc(d.titre)}</b>
-      <small>${TRI[d.trimestre]||''} · ${d.duree_min||'?'} min · ${esc(d.bareme||'')}</small></span>
+      <small>${d.type==='bac'?'🎓 Épreuve officielle du Bac':(TRI[d.trimestre]||'')} · ${d.duree_min||'?'} min · ${esc(d.bareme||'')}</small></span>
     <span class="arrow">›</span></button>`).join("");
   body.querySelectorAll("[data-dev]").forEach(b => b.onclick = () => go({ name: "devoir", dev: b.dataset.dev }));
 }
@@ -796,7 +844,7 @@ async function renderDevoir(id) {
       const res = await r.json();
       if (!res.ok) return false;
       corById = {};
-      ((res.corrige && res.corrige.exercices) || []).forEach(c => corById[c.numero] = c.corrige);
+      ((res.corrige && res.corrige.exercices) || []).forEach((c, i) => corById[i] = dvCorrigeToStr(c));
       return true;
     } catch { return false; }
   }
@@ -806,7 +854,9 @@ async function renderDevoir(id) {
   const nivNom = nivObj ? (ar ? nivObj.nom_ar : nivObj.nom_fr) : "";
   const noteSur = esc((d.bareme || "20").replace(/[^0-9]/g, "") || "20");
   const triAr = { 1: "الثلاثي الأوّل", 2: "الثلاثي الثاني", 3: "الثلاثي الثالث" };
-  const etab = ar ? "المدرسة الإعدادية الافتراضية نجاح" : "Collège virtuel Najah";
+  const isBac = d.type === "bac";
+  const etab = isBac ? (ar ? "امتحان البكالوريا" : "Examen du Baccalauréat")
+    : ar ? "المدرسة الإعدادية الافتراضية نجاح" : "Collège virtuel Najah";
   const minist = ar ? "الجمهورية التونسية · وزارة التربية" : "République Tunisienne · Ministère de l'Éducation";
   const nomLigne = ar
     ? "الاسم واللقب: ⋯⋯⋯⋯⋯⋯⋯⋯⋯⋯⋯⋯  ·  القسم: ⋯⋯⋯  ·  الرقم: ⋯⋯"
@@ -821,21 +871,23 @@ async function renderDevoir(id) {
       <div class="dv-barre">
         <span>⏱️ ${ar?"المدة":"Durée"} : ${d.duree_min||'?'} ${ar?"دقيقة":"min"}</span>
         <span>📊 ${ar?"العدد على":"Noté sur"} ${noteSur}</span>
-        <span>🗓️ ${ar?(triAr[d.trimestre]||""):(TRI[d.trimestre]||"")}</span>
+        <span>🗓️ ${isBac?(ar?"الدورة الرئيسية":"Session principale"):ar?(triAr[d.trimestre]||""):(TRI[d.trimestre]||"")}</span>
         ${nivNom?`<span>🎓 ${esc(nivNom)}</span>`:""}
       </div>
       <div class="dv-nom">${nomLigne}</div>
       <div class="btn-row" style="justify-content:center;margin-top:10px"><button class="btn" id="timer-btn">▶️ ${ar?"ابدأ المؤقّت":"Démarrer le chrono"}</button>
         <span id="timer" style="align-self:center;font-weight:800;color:var(--rouge)"></span></div>
     </div>
-    ${exs.map(ex => `<div class="ex-card">
-      <div class="ex-head"><span class="row-num">${ex.numero}</span>
-        <span class="badge diff">${esc(ex.bareme||'')}</span></div>
+    ${exs.map((ex, i) => { const num = ex.numero ?? ex.num ?? (i+1); const bareme = ex.bareme ?? ex.points ?? ''; const tt = [ex.partie, ex.titre].filter(Boolean).join(' · '); return `<div class="ex-card">
+      <div class="ex-head"><span class="row-num">${esc(String(num))}</span>
+        ${tt?`<span class="dv-ex-t"${dirAttr(tt)}>${esc(tt)}</span>`:''}
+        <span class="badge diff">${esc(String(bareme))}</span></div>
       <div class="ex-q"${dirAttr(ex.enonce)}>${mathHtml(ex.enonce)}</div>
-      ${figHtml(ex.figure_svg)}
-      <div class="btn-row"><button class="btn soft" data-cor="${ex.numero}">Voir le corrigé ${isPremium()?'':'🌟'}</button></div>
-      <div class="correction" id="dcor-${ex.numero}" hidden></div>
-    </div>`).join("")}
+      ${dvEnonceFigs(ex)}
+      ${dvExtraHtml(ex)}
+      <div class="btn-row"><button class="btn soft" data-cor="${i}">Voir le corrigé ${isPremium()?'':'🌟'}</button></div>
+      <div class="correction" id="dcor-${i}" hidden></div>
+    </div>`; }).join("")}
     <div class="dv-footer"${ar?' dir="rtl"':''}>${ar?"بالتوفيق 🍀":"Bon travail ! 🍀"}</div>
     <div id="paywall-dev"></div>
     <div class="btn-row"><button class="btn block soft" id="ask-dev">🧑‍🏫 Aide-moi à corriger avec Najah IA</button></div>`;
