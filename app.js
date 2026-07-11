@@ -45,6 +45,12 @@ const MAT = {
   12:{fr:"Éducation islamique",ar:"التربية الإسلامية",e:"🕌",c:"#3f8f5c"},
   13:{fr:"Éveil scientifique",ar:"الإيقاظ العلمي",e:"🔬",c:"#e0993a"},
   14:{fr:"Matières sociales",ar:"المواد الاجتماعية",e:"🌍",c:"#7c5cbf"},
+  15:{fr:"Histoire",ar:"التاريخ",e:"🏛️",c:"#a3672b"},
+  16:{fr:"Géographie",ar:"الجغرافيا",e:"🗺️",c:"#2f9e6e"},
+  17:{fr:"Arts plastiques",ar:"التربية التشكيلية",e:"🎨",c:"#d6558f"},
+  18:{fr:"Algorithmique et Programmation",ar:"الخوارزميات والبرمجة",e:"💻",c:"#3b6ef5"},
+  19:{fr:"STI",ar:"نظم وتكنولوجيا المعلومات",e:"🌐",c:"#0ea5a5"},
+  20:{fr:"Éducation civique",ar:"التربية المدنية",e:"⚖️",c:"#8a5cd6"},
 };
 const TRI = {1:"Trimestre 1",2:"Trimestre 2",3:"Trimestre 3"};
 
