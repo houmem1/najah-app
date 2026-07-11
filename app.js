@@ -171,7 +171,7 @@ function dvFiguresHtml(figs) {
   return figs.map(f => {
     const svg = typeof f === "string" ? f : (f.svg || f.figure_svg || "");
     if (!svg) return "";
-    const nom = (f && typeof f === "object" && f.nom) ? `<div class="dv-fig-t">${esc(f.nom)}</div>` : "";
+    const nom = (f && typeof f === "object" && f.nom) ? `<div class="dv-fig-t"${dirAttr(f.nom)}>${mathHtml(f.nom)}</div>` : "";
     return nom + figHtml(svg);
   }).join("");
 }
