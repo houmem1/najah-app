@@ -21,7 +21,7 @@ let ST = Object.assign(
 );
 if (!ST.sid) { ST.sid = "el-" + Math.abs(hash(navigator.userAgent + performance.now())).toString(36) + "-" + Math.floor(performance.now()); }
 // Changer de classe depuis le bandeau (revient à l'onboarding niveau/section)
-window.__chgNiv = () => { ST._entered = false; save(); go({ name: "home" }); };
+// Niveau verrouillé après le choix initial : pas de navigation entre niveaux.
 function save() {
   const out = {};
   for (const k in ST) if (k[0] !== "_") out[k] = ST[k];   // ne pas persister les caches _niveaux/_sections
@@ -292,7 +292,7 @@ async function rpcActiverCode(code) {
   const r = await fetch(REST + "rpc/edu_activer_code", {
     method: "POST",
     headers: Object.assign({ "Content-Type": "application/json" }, H),
-    body: JSON.stringify({ p_code: code }),
+    body: JSON.stringify({ p_code: code, p_niveau: ST.niveau || null }),
   });
   if (!r.ok) throw new Error("rpc " + r.status);
   return r.json();
@@ -308,7 +308,7 @@ async function activerPremium(codeSaisi) {
       toast("🌟 Premium activé (" + (res.plan === "trimestre" ? "3 mois" : "1 mois") + ") — مبروك !");
       return true;
     }
-    const msgs = { introuvable: "Code introuvable — vérifie les caractères.", expire: "Ce code a expiré.", revoque: "Ce code n'est plus valable." };
+    const msgs = { introuvable: "Code introuvable — vérifie les caractères.", expire: "Ce code a expiré.", revoque: "Ce code n'est plus valable.", niveau: "Ce code est lié à un autre niveau scolaire · هذا الكود مخصّص لمستوى آخر." };
     toast("❌ " + (msgs[res.raison] || "Code invalide."));
     return false;
   } catch (e) { toast("Connexion impossible, réessaie."); return false; }
@@ -410,8 +410,8 @@ let VIEW = { name: "home" };
 function go(v) { VIEW = v; render(); window.scrollTo(0, 0); }
 
 function render() {
-  // À chaque lancement (et tant qu'aucune année n'est choisie) : écran de choix d'année.
-  if (!ST._entered || !ST.niveau) return renderYearChoice();
+  // Choix d'année UNIQUEMENT au premier lancement ; ensuite le niveau est verrouillé.
+  if (!ST.niveau) return renderYearChoice();
   const v = VIEW.name;
   if (v === "home") return renderHome();
   if (v === "matieres") return renderMatieres();
@@ -437,7 +437,7 @@ function topbar(sub) {
       <span class="chip">⭐ ${ST.points||0}</span>
       <span class="chip">🔥 ${ST.streak||0}</span>
     </div></div>
-    <div class="subline">${sub ? esc(sub) : `<button type="button" onclick="window.__chgNiv()" style="background:none;border:none;color:inherit;font:inherit;cursor:pointer;padding:0;text-decoration:underline dotted;text-underline-offset:3px">📖 ${n ? esc(n.nom_fr) + (ST.section ? " · " + esc(sectionName(ST.section)) : "") : "Choisir ma classe"} ✎</button>`}</div>
+    <div class="subline">${sub ? esc(sub) : `📖 ${n ? esc(n.nom_fr) + (ST.section ? " · " + esc(sectionName(ST.section)) : "") : ""}`}</div>
   </div>`;
 }
 function bottomnav(active) {
@@ -459,7 +459,7 @@ async function renderYearChoice() {
   app.innerHTML = `<div class="onb">
     <div class="onb-hero"><img class="hero-logo" src="icon-app.png" alt="Najah">
       <h1>Najah · نجاح</h1>
-      <p>Ton prof particulier gratuit, 24h/24.<br>Choisis ton année pour commencer · <span dir="rtl">اختر سنتك</span></p></div>
+      <p>Ton prof particulier, 24h/24.<br>Choisis ton année pour commencer · <span dir="rtl">اختر سنتك</span><br><small style="opacity:.75">⚠️ Ce choix sera verrouillé · <span dir="rtl">هذا الاختيار نهائي</span></small></p></div>
     <div id="yc-body"><div class="skeleton"></div><div class="skeleton"></div></div>
   </div>`;
   let niveaux = ST._niveaux;
@@ -485,8 +485,28 @@ async function renderYearChoice() {
        <div class="pick-grid" id="yc-sec"></div>
      </div>`;
   const entrer = (niv, sec) => {
-    ST.niveau = niv; ST.section = sec || null; ST._entered = true; save(); syncProfil();
-    go({ name: "home" });
+    // Confirmation avant verrouillage définitif du niveau.
+    const n = niveaux.find(x => x.id === niv);
+    const s = sec ? (sections.find(x => x.code === sec) || {}).nom_fr : null;
+    let box = document.getElementById("yc-confirm");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "yc-confirm";
+      document.getElementById("yc-body").appendChild(box);
+    }
+    box.innerHTML = `<div style="margin-top:18px;padding:16px;border:2px solid var(--rouge,#E70013);border-radius:14px;background:var(--card,#fff)">
+      <div style="font-weight:700;margin-bottom:6px">📖 ${esc(n ? n.nom_fr : "")}${s ? " · " + esc(s) : ""}</div>
+      <div style="font-size:13.5px;color:var(--muted);margin-bottom:12px">Ton compte sera lié à cette classe — le choix est <b>définitif</b>.<br><span dir="rtl">حسابك بش يتربط بهذا المستوى — الاختيار نهائي، تثبّت مليح!</span></div>
+      <div class="btn-row">
+        <button class="btn block" id="yc-ok">✅ Confirmer · تأكيد</button>
+        <button class="btn block ghost" id="yc-back">↩ Modifier</button>
+      </div></div>`;
+    box.scrollIntoView({ behavior: "smooth" });
+    document.getElementById("yc-ok").onclick = () => {
+      ST.niveau = niv; ST.section = sec || null; ST._entered = true; save(); syncProfil();
+      go({ name: "home" });
+    };
+    document.getElementById("yc-back").onclick = () => { box.innerHTML = ""; };
   };
   app.querySelectorAll("[data-year]").forEach(b => b.onclick = () => {
     const niv = +b.dataset.year;
@@ -1181,7 +1201,7 @@ function renderProfil() {
       <input id="parent-email" type="email" inputmode="email" placeholder="email du parent" value="${esc(ST.parentEmail || '')}" style="width:100%;padding:11px;border:1px solid var(--bd,#d8deea);border-radius:10px;font:inherit;box-sizing:border-box;background:var(--card,#fff);color:inherit">
       <div class="btn-row"><button class="btn block soft" id="parent-save">Enregistrer l'email</button></div>
     </div>
-    <div class="btn-row"><button class="btn block ghost" id="chg-niv">Changer de classe</button></div>
+    <div style="text-align:center;color:var(--muted);font-size:12.5px;margin-top:6px">🔒 Classe verrouillée : ${esc((niv()||{}).nom_fr||"")}${ST.section ? " · " + esc(sectionName(ST.section)) : ""}</div>
     <p style="color:var(--muted);font-size:12.5px;text-align:center;margin-top:24px">100% gratuit · Programme officiel tunisien 🇹🇳<br>Najah — نجاح · ton prof particulier, 24h/24<br><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--muted)">Politique de confidentialité</a></p>
   </div>` + bottomnav("profil");
   wireChrome();
@@ -1189,7 +1209,7 @@ function renderProfil() {
     ST.theme = b.dataset.theme; save(); applyTheme();
     document.querySelectorAll("[data-theme]").forEach(x => x.classList.toggle("on", x === b));
   });
-  document.getElementById("chg-niv").onclick = () => { ST._entered = false; save(); go({ name: "home" }); };
+  // Classe verrouillée : plus de changement de niveau depuis le profil.
   const pe = document.getElementById("parent-email"), ps = document.getElementById("parent-save");
   if (ps) ps.onclick = async () => {
     const v = (pe.value || "").trim();
