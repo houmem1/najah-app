@@ -20,6 +20,8 @@ let ST = Object.assign(
   store.s
 );
 if (!ST.sid) { ST.sid = "el-" + Math.abs(hash(navigator.userAgent + performance.now())).toString(36) + "-" + Math.floor(performance.now()); }
+// Migration v45 : un profil resté sur « Changer de classe » (ancienne app) repasse par l'écran des niveaux.
+if (ST._entered === false) { ST.niveau = null; ST.section = null; delete ST._entered; }
 // Changer de classe depuis le bandeau (revient à l'onboarding niveau/section)
 // Niveau verrouillé après le choix initial : pas de navigation entre niveaux.
 function save() {
