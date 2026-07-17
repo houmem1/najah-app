@@ -249,3 +249,12 @@ body.dark .dv-top{background:#1c2333}
 body.dark .devoir-entete{border-color:var(--muted)}
 
 @media(min-width:560px){.grid{grid-template-columns:repeat(3,1fr)}.pick-grid{grid-template-columns:repeat(3,1fr)}}
+
+/* Tableaux de contenu (markdown | a | b | rendus en vraies tables) */
+.tbl-wrap{overflow-x:auto;margin:10px 0;max-width:100%}
+.nj-tbl{border-collapse:collapse;min-width:60%;font-size:13.5px;background:var(--card);line-height:1.5;white-space:normal}
+.nj-tbl th,.nj-tbl td{border:1px solid var(--line);padding:7px 10px;text-align:start;vertical-align:top}
+.nj-tbl th{background:var(--bg);font-weight:800}
+.nj-tbl tr:nth-child(even) td{background:color-mix(in srgb,var(--bg) 45%,transparent)}
+body.dark .nj-tbl th{background:#1c2333}
+body.dark .nj-tbl tr:nth-child(even) td{background:#161d2d}

@@ -204,8 +204,7 @@ function dvCorrigeToStr(c) {
 }
 // Rendu LaTeX : les segments $…$ (en ligne) et $$…$$ (bloc) sont rendus par
 // KaTeX, tout le reste est échappé. Repli sans KaTeX (hors-ligne 1ʳᵉ visite) : texte échappé.
-function mathHtml(txt) {
-  const s = String(txt == null ? "" : txt);
+function mathSeg(s) {
   if (!window.katex || s.indexOf("$") === -1) return esc(s);
   return s.split(/(\$\$[\s\S]+?\$\$|\$[^$\n]+?\$)/g).map(seg => {
     const m = seg.match(/^\$(\$?)([\s\S]+?)\1\$$/);
@@ -213,6 +212,39 @@ function mathHtml(txt) {
     try { return katex.renderToString(m[2].trim(), { displayMode: !!m[1], throwOnError: false }); }
     catch { return esc(seg); }
   }).join("");
+}
+// Tableaux : une ligne « | a | b | » appartient à un tableau ; un groupe de lignes
+// consécutives devient une vraie <table> (les lignes séparatrices |---|---| sont sautées).
+function isTblLine(l) {
+  const t = l.trim();
+  return t.length > 2 && t[0] === "|" && t[t.length - 1] === "|" && t.split("|").length >= 3;
+}
+function tblHtml(lines) {
+  const rows = lines.map(l => l.trim().slice(1, -1).split("|").map(c => c.trim()));
+  const isSep = r => r.length > 0 && r.every(c => /^:?-{2,}:?$/.test(c));
+  const hasHead = rows.length > 1 && isSep(rows[1]);
+  const body = rows.filter(r => !isSep(r));
+  if (!body.length) return "";
+  const cell = (c, tag) => `<${tag}${dirAttr(c)}>${mathSeg(c)}</${tag}>`;
+  let html = "";
+  body.forEach((r, i) => {
+    const tag = hasHead && i === 0 ? "th" : "td";
+    html += "<tr>" + r.map(c => cell(c, tag)).join("") + "</tr>";
+  });
+  return `<div class="tbl-wrap"${dirAttr(lines.join(" "))}><table class="nj-tbl">${html}</table></div>`;
+}
+function mathHtml(txt) {
+  const s = String(txt == null ? "" : txt);
+  if (s.indexOf("|") === -1 || !/^\s*\|.*\|\s*$/m.test(s)) return mathSeg(s);
+  let out = "", tbl = [], buf = [];
+  const flushTbl = () => { if (tbl.length) { out += tblHtml(tbl); tbl = []; } };
+  const flushTxt = () => { if (buf.length) { out += mathSeg(buf.join("\n")); buf = []; } };
+  for (const l of s.split("\n")) {
+    if (isTblLine(l)) { flushTxt(); tbl.push(l); }
+    else { flushTbl(); buf.push(l); }
+  }
+  flushTxt(); flushTbl();
+  return out;
 }
 // Rendu d'un cours : le texte est échappé (avec LaTeX), mais les blocs [[FIG]]<svg…>[[/FIG]]
 // sont rendus comme figures de confiance (validées par figHtml).
@@ -231,16 +263,24 @@ const CO_TYPES = [
   [/^⚠️/, "co-warn"], [/^⭐/, "co-mem"], [/^(👀|💡|🔗)/, "co-note"],
 ];
 function lessonLines(txt) {
-  return txt.split("\n").map(line => {
+  let out = "", tbl = [];
+  const flushTbl = () => { if (tbl.length) { out += tblHtml(tbl); tbl = []; } };
+  for (const line of txt.split("\n")) {
+    if (isTblLine(line)) { tbl.push(line); continue; }
+    flushTbl();
     const t = line.trim();
-    if (!t) return '<div class="ln-sp"></div>';
+    if (!t) { out += '<div class="ln-sp"></div>'; continue; }
     if (/^[IVX]{1,4}[.)]\s/.test(t) || (t.length < 42 && /^(🎯|🔍|📐|🔗|✏️|⚠️|⭐|📊|🧪)\s?\S+/.test(t) && !/[:.]$|[.:]\s*\S/.test(t.slice(3))))
-      return `<div class="ln-head">${mathHtml(t)}</div>`;
-    for (const [re, cls] of CO_TYPES)
-      if (re.test(t)) return `<div class="co ${cls}">${mathHtml(t)}</div>`;
-    if (/^[•·-]\s/.test(t)) return `<div class="ln ln-li">${mathHtml(t)}</div>`;
-    return `<div class="ln">${mathHtml(t)}</div>`;
-  }).join("");
+      out += `<div class="ln-head">${mathHtml(t)}</div>`;
+    else {
+      const co = CO_TYPES.find(([re]) => re.test(t));
+      if (co) out += `<div class="co ${co[1]}">${mathHtml(t)}</div>`;
+      else if (/^[•·-]\s/.test(t)) out += `<div class="ln ln-li">${mathHtml(t)}</div>`;
+      else out += `<div class="ln">${mathHtml(t)}</div>`;
+    }
+  }
+  flushTbl();
+  return out;
 }
 
 /* ── Points & streak ────────────────────────────────────────────── */
