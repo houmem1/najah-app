@@ -13,8 +13,8 @@ window.CONFIG = {
   STT_FN: "https://slhoumem.app.n8n.cloud/webhook/stt-derja",
   // Premium (codes prépayés type carte de recharge)
   PREMIUM: {
-    prixMois: "30 DT",
-    prixTrimestre: "80 DT",
+    prixMois: "20 DT",
+    prixTrimestre: "50 DT",
     // 0 = tuteur réservé au Premium (mettre p.ex. 3 pour offrir des questions découverte/jour)
     msgGratuitsParJour: 0,
     // Webhook n8n « Premium - Paiement Flouci » (déclaration du transfert Flouci).
