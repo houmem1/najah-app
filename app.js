@@ -118,7 +118,7 @@ async function api(path) {
     let l = (await dget(`n${eq("niveau_id")}/devoirs.json`)) || [];
     const mat = eq("matiere_id");
     if (mat) l = l.filter(d => String(d.matiere_id) === mat);
-    if (ST.section) l = l.filter(d => !d.section || d.section === ST.section);
+    if (ST.section) l = l.filter(d => d.sections ? d.sections.includes(ST.section) : (!d.section || d.section === ST.section));
     return l;
   }
   throw new Error("api inconnue " + path);
