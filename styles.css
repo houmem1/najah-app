@@ -298,3 +298,11 @@ body.dark .nj-tbl tr:nth-child(even) td{background:#161d2d}
   .cp-ex{break-inside:avoid}
   .correction[hidden]{display:none !important}
 }
+
+/* ── Markdown du contenu : blocs de code, code en ligne, filets ── */
+pre.code{background:#0f172a;color:#e2e8f0;padding:12px 14px;border-radius:10px;overflow-x:auto;margin:10px 0;
+  font-family:Consolas,"Courier New",monospace;font-size:13px;line-height:1.55;white-space:pre;direction:ltr;text-align:left;font-weight:400}
+code{background:rgba(120,130,160,.18);padding:1px 5px;border-radius:5px;font-family:Consolas,"Courier New",monospace;font-size:.92em;direction:ltr;unicode-bidi:isolate}
+.ln-hr{border-top:1px solid var(--line);margin:12px 0}
+.copie pre.code{background:#f4f4f4;color:#111;border:1px solid #999}
+@media print{pre.code{background:#f4f4f4 !important;color:#111 !important;border:1px solid #999;white-space:pre-wrap}}

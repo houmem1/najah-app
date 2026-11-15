@@ -232,13 +232,27 @@ function dvCorrigeToStr(c) {
 // Rendu LaTeX : les segments $…$ (en ligne) et $$…$$ (bloc) sont rendus par
 // KaTeX, tout le reste est échappé. Repli sans KaTeX (hors-ligne 1ʳᵉ visite) : texte échappé.
 function mathSeg(s) {
-  if (!window.katex || s.indexOf("$") === -1) return esc(s);
-  return s.split(/(\$\$[\s\S]+?\$\$|\$[^$\n]+?\$)/g).map(seg => {
+  // Markdown en ligne : `code`, **gras**, *italique* — marqués par des sentinelles avant l'échappement,
+  // pour que le gras puisse entourer une formule et que le code ne soit jamais interprété.
+  const codes = [];
+  let t = String(s).replace(/`([^`\n]+)`/g, (m, c) => { codes.push(c); return "\u0003" + (codes.length - 1) + "\u0003"; })
+    .replace(/\\\$/g, "\u0006");                      // \$ = signe dollar littéral (références de tableur, PHP)
+  // Italique d'abord (il peut être à l'intérieur d'un gras), puis gras, puis gras à l'intérieur d'un mot (« oxyd**ant** »).
+  t = t.replace(/(^|[\s(«"'])\*(?=[^\s*])([^*\n$]+?)\*(?![\w*])/gm, "$1\u0004$2\u0005")
+       .replace(/(^|[^\w*\\])\*\*(?=\S)((?:[^*\n$]|\$[^$\n]*\$)+?)\*\*(?![\w*])/gm, "$1\u0001$2\u0002")
+       .replace(/\*\*([A-Za-zÀ-ÿ]{1,15})\*\*/g, "\u0001$1\u0002");
+  let html;
+  if (!window.katex || t.indexOf("$") === -1) html = esc(t);
+  else html = t.split(/(\$\$[\s\S]+?\$\$|\$[^$\n]+?\$)/g).map(seg => {
     const m = seg.match(/^\$(\$?)([\s\S]+?)\1\$$/);
     if (!m) return esc(seg);
-    try { return katex.renderToString(m[2].trim(), { displayMode: !!m[1], throwOnError: false }); }
+    // KaTeX refuse un exposant ou un indice placé juste après une espace (25\,^\circ, \,^{4}_{2}He) : on insère un groupe vide.
+    const tex = m[2].replace(/[\u0001\u0002\u0004\u0005]/g, "").replace(/(\\[,;:!]|\\ )(?=[\^_])/g, "$1{}").trim();
+    try { return katex.renderToString(tex, { displayMode: !!m[1], throwOnError: false }); }
     catch { return esc(seg); }
   }).join("");
+  return html.replace(/\u0001/g, "<b>").replace(/\u0002/g, "</b>").replace(/\u0004/g, "<i>").replace(/\u0005/g, "</i>")
+    .replace(/\u0006/g, "$").replace(/\u0003(\d+)\u0003/g, (m, i) => `<code>${esc(codes[+i])}</code>`);
 }
 // Tableaux : une ligne « | a | b | » appartient à un tableau ; un groupe de lignes
 // consécutives devient une vraie <table> (les lignes séparatrices |---|---| sont sautées).
@@ -262,6 +276,17 @@ function tblHtml(lines) {
 }
 function mathHtml(txt) {
   const s = String(txt == null ? "" : txt);
+  // Blocs de code ```…``` : affichés tels quels, sans formule ni mise en forme.
+  if (s.indexOf("```") !== -1) {
+    return s.split(/```[a-zA-Z0-9+#-]*[ \t]*\n?/).map((seg, i) =>
+      i % 2 ? `<pre class="code" dir="ltr">${esc(seg.replace(/\n$/, ""))}</pre>` : mathBloc(seg)).join("");
+  }
+  return mathBloc(s);
+}
+function mathBloc(txt) {
+  // Titres « # » → gras ; filets « --- » retirés.
+  const s = txt.indexOf("#") === -1 && txt.indexOf("---") === -1 ? txt
+    : txt.replace(/^[ \t]*#{1,6}[ \t]+(.+)$/gm, "**$1**").replace(/^[ \t]*-{3,}[ \t]*$/gm, "");
   if (s.indexOf("|") === -1 || !/^\s*\|.*\|\s*$/m.test(s)) return mathSeg(s);
   let out = "", tbl = [], buf = [];
   const flushTbl = () => { if (tbl.length) { out += tblHtml(tbl); tbl = []; } };
@@ -290,23 +315,36 @@ const CO_TYPES = [
   [/^⚠️/, "co-warn"], [/^⭐/, "co-mem"], [/^(👀|💡|🔗)/, "co-note"],
 ];
 function lessonLines(txt) {
-  let out = "", tbl = [];
+  let out = "", tbl = [], code = null;
   const flushTbl = () => { if (tbl.length) { out += tblHtml(tbl); tbl = []; } };
   for (const line of txt.split("\n")) {
+    const t = line.trim();
+    if (t.startsWith("```")) {                       // bloc de code (cours d'informatique)
+      flushTbl();
+      if (code === null) code = [];
+      else { out += `<pre class="code" dir="ltr">${esc(code.join("\n"))}</pre>`; code = null; }
+      continue;
+    }
+    if (code !== null) { code.push(line); continue; }
     if (isTblLine(line)) { tbl.push(line); continue; }
     flushTbl();
-    const t = line.trim();
     if (!t) { out += '<div class="ln-sp"></div>'; continue; }
-    if (/^[IVX]{1,4}[.)]\s/.test(t) || (t.length < 42 && /^(🎯|🔍|📐|🔗|✏️|⚠️|⭐|📊|🧪)\s?\S+/.test(t) && !/[:.]$|[.:]\s*\S/.test(t.slice(3))))
-      out += `<div class="ln-head">${mathHtml(t)}</div>`;
+    if (/^-{3,}$/.test(t)) { out += '<div class="ln-hr"></div>'; continue; }
+    const hm = t.match(/^#{1,6}\s+(.+)$/);           // titre markdown
+    if (hm) { out += `<div class="ln-head">${mathHtml(hm[1])}</div>`; continue; }
+    if (/^>\s/.test(t)) { out += `<div class="co co-note">${mathHtml(t.replace(/^>\s+/, ""))}</div>`; continue; }
+    const nu = t.replace(/^\*\*(.+)\*\*$/, "$1");    // ligne entièrement en gras : on teste le texte nu
+    if (/^[IVX]{1,4}[.)]\s/.test(nu) || (nu.length < 42 && /^(🎯|🔍|📐|🔗|✏️|⚠️|⭐|📊|🧪)\s?\S+/.test(nu) && !/[:.]$|[.:]\s*\S/.test(nu.slice(3))))
+      out += `<div class="ln-head">${mathHtml(nu)}</div>`;
     else {
       const co = CO_TYPES.find(([re]) => re.test(t));
       if (co) out += `<div class="co ${co[1]}">${mathHtml(t)}</div>`;
-      else if (/^[•·-]\s/.test(t)) out += `<div class="ln ln-li">${mathHtml(t)}</div>`;
+      else if (/^[•·*-]\s/.test(t)) out += `<div class="ln ln-li">${mathHtml(t.replace(/^[*-]\s/, "• "))}</div>`;
       else out += `<div class="ln">${mathHtml(t)}</div>`;
     }
   }
   flushTbl();
+  if (code !== null && code.length) out += `<pre class="code" dir="ltr">${esc(code.join("\n"))}</pre>`;
   return out;
 }
 
@@ -945,7 +983,13 @@ async function renderDevoir(id) {
       const cor = await dechiffrer(`cd/${d.id}.enc`);
       if (!cor) return false;
       corById = {};
-      (cor.exercices || []).forEach((c, i) => corById[i] = dvCorrigeToStr(c));
+      const cl = cor.exercices || [];
+      const num = x => String(x.numero ?? x.num ?? "");
+      const nums = cl.map(num);
+      // Un texte support n'a pas de corrigé : si les longueurs diffèrent, on associe par numéro plutôt que par position.
+      if (cl.length !== exs.length && nums.every(n => n) && new Set(nums).size === nums.length && nums.every(n => exs.some(x => num(x) === n)))
+        exs.forEach((x, i) => { const j = nums.indexOf(num(x)); if (j >= 0) corById[i] = dvCorrigeToStr(cl[j]); });
+      else cl.forEach((c, i) => corById[i] = dvCorrigeToStr(c));
       return true;
     } catch { return false; }
   }
@@ -979,13 +1023,13 @@ async function renderDevoir(id) {
       <div class="cp-sujet"${dirAttr(d.titre)}>${esc(d.titre)}</div>
       <div class="btn-row no-print" style="justify-content:center;margin:8px 0 2px"><button class="btn" id="timer-btn">▶️ ${ar?"ابدأ المؤقّت":"Démarrer le chrono"}</button>
         <span id="timer" style="align-self:center;font-weight:800;color:var(--rouge)"></span></div>
-    ${exs.map((ex, i) => { const num = ex.numero ?? ex.num ?? (i+1); const pts = ptsLabel(ex.bareme ?? ex.points, ar); const tt = [ex.partie, ex.titre].filter(Boolean).join(' · '); return `<section class="cp-ex">
+    ${exs.map((ex, i) => { const num = ex.numero ?? ex.num ?? (i+1); const support = /^[—–-]?$/.test(String(ex.bareme ?? ex.points ?? "").trim()); const pts = support ? "" : ptsLabel(ex.bareme ?? ex.points, ar); const tt = [ex.partie, ex.titre].filter(Boolean).join(' · '); return `<section class="cp-ex">
       <div class="cp-ex-h"><span class="cp-ex-t">${exTitre(num, ar)}${tt ? ` : <span${dirAttr(tt)}>${esc(tt)}</span>` : ''}</span>${pts ? `<span class="cp-pts">(${esc(pts)})</span>` : ''}</div>
       <div class="ex-q"${dirAttr(ex.enonce)}>${mathHtml(ex.enonce)}</div>
       ${dvEnonceFigs(ex)}
       ${dvExtraHtml(ex)}
-      <div class="btn-row no-print"><button class="btn soft" data-cor="${i}">${ar ? "عرض الإصلاح" : "Voir le corrigé"} ${isPremium()?'':'🌟'}</button></div>
-      <div class="correction" id="dcor-${i}" hidden></div>
+      ${support ? "" : `<div class="btn-row no-print"><button class="btn soft" data-cor="${i}">${ar ? "عرض الإصلاح" : "Voir le corrigé"} ${isPremium()?'':'🌟'}</button></div>
+      <div class="correction" id="dcor-${i}" hidden></div>`}
     </section>`; }).join("")}
       <div class="cp-fin">${ar ? "بالتوفيق" : "Bon travail"}</div>
     </div>
