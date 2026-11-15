@@ -258,3 +258,43 @@ body.dark .devoir-entete{border-color:var(--muted)}
 .nj-tbl tr:nth-child(even) td{background:color-mix(in srgb,var(--bg) 45%,transparent)}
 body.dark .nj-tbl th{background:#1c2333}
 body.dark .nj-tbl tr:nth-child(even) td{background:#161d2d}
+
+/* ── Mise en page « document tunisien » : feuille blanche, cartouche officiel, barème encadré ── */
+.copie{background:#fff;color:#111;border:1px solid #9aa3b5;border-radius:6px;padding:14px 13px 18px;margin-bottom:14px;
+  font-family:"Times New Roman",Times,"Amiri","Noto Naskh Arabic",serif;font-size:16.5px;line-height:1.7;box-shadow:var(--shadow)}
+.copie[dir=rtl],.copie [dir=rtl]{font-family:"Amiri","Traditional Arabic","Noto Naskh Arabic","Times New Roman",serif}
+.copie[dir=rtl]{font-size:18px}
+.copie.cp-fiche{padding:0;border:none;box-shadow:none;background:none;margin-bottom:10px}
+.cp-entete{width:100%;border-collapse:collapse;table-layout:fixed;margin:0;background:#fff;color:#111}
+.cp-entete td{border:1.5px solid #111;padding:7px 4px;text-align:center;vertical-align:middle;font-size:clamp(10.5px,3vw,13.5px);line-height:1.5;overflow-wrap:anywhere}
+.cp-entete td b{display:block;font-weight:700}
+.cp-entete td small{display:block;font-size:clamp(9.5px,2.7vw,12px);color:#333}
+.cp-entete .cp-mat{display:block;font-weight:700;text-decoration:underline;text-underline-offset:3px;font-size:clamp(11.5px,3.2vw,15px);margin-bottom:2px}
+.copie .devoir-entete{border:none;border-radius:0;padding:0;margin:0;background:none;overflow:visible}
+.cp-nom{border:1.5px solid #111;border-top:none;padding:8px 8px;font-size:clamp(11.5px,3.2vw,13.5px);line-height:1.9;word-spacing:1px}
+.cp-nom span{display:inline-block;white-space:nowrap;margin-inline-end:8px}
+.cp-sujet{text-align:center;font-size:12.5px;color:#555;margin-top:8px}
+.cp-ex{margin-top:18px}
+.cp-ex-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+.cp-ex-t{font-weight:700;text-decoration:underline;text-underline-offset:3px;font-size:17px}
+.cp-pts{font-weight:700;border:1.5px solid #111;padding:0 8px;white-space:nowrap;font-size:13.5px}
+.copie .ex-q,.copie .dv-q{color:#111;font-weight:400;font-size:inherit;line-height:1.75}
+.copie .dv-partie-t{color:#111;text-decoration:underline;font-size:15.5px}
+.copie .dv-fig-t{color:#333}
+.copie .nj-tbl{background:#fff;font-size:14.5px}
+.copie .nj-tbl th,.copie .nj-tbl td{border:1px solid #111;background:#fff !important;color:#111}
+.copie .correction{background:#f7faf8;border:1px dashed #5c8f73;border-radius:4px;color:#111;white-space:pre-wrap}
+.cp-cor-t{display:inline-block;font-weight:700;text-decoration:underline;margin-bottom:4px}
+.cp-fin{text-align:center;font-weight:700;font-style:italic;margin-top:22px;font-size:16px}
+.exo-t{font-weight:800;text-decoration:underline;text-underline-offset:3px;font-size:15.5px}
+@media print{
+  @page{size:A4;margin:14mm}
+  html,body{background:#fff !important}
+  .topbar,.bottomnav,.fab-tutor,.tutor-panel,.toast,#maint,.back,.tabs,.btn-row,.no-print,#paywall-dev,.section-title{display:none !important}
+  .pad{padding:0 !important;max-width:none !important}
+  .copie{border:none;box-shadow:none;padding:0;font-size:12pt}
+  .lesson,.ex-card{box-shadow:none !important;border:none !important;padding:0 !important}
+  .ex-card{margin:0 0 14pt !important;break-inside:avoid}
+  .cp-ex{break-inside:avoid}
+  .correction[hidden]{display:none !important}
+}

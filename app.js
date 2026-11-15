@@ -3,9 +3,8 @@
    ══════════════════════════════════════════════════════════════════ */
 "use strict";
 const C = window.CONFIG;
-const REST = C.SUPA_URL + "/rest/v1/";
-const FN = C.SUPA_URL + "/functions/v1/";
-const H = { apikey: C.SUPA_KEY, Authorization: "Bearer " + C.SUPA_KEY };
+const DATA = C.DATA || "data/";   // contenu statique (JSON) servi avec le site
+const API = C.API;                // API n8n : activation des codes Premium
 
 /* ── État & persistance ─────────────────────────────────────────── */
 const store = {
@@ -55,49 +54,22 @@ const MAT = {
   20:{fr:"Éducation civique",ar:"التربية المدنية",e:"⚖️",c:"#8a5cd6"},
 };
 const TRI = {1:"Trimestre 1",2:"Trimestre 2",3:"Trimestre 3"};
+const TRI_AR = {1:"الثلاثي الأوّل",2:"الثلاثي الثاني",3:"الثلاثي الثالث"};
 
-/* ── Client REST minimal ────────────────────────────────────────── */
-// Cache persistant du CONTENU (cours/chapitres/exercices/devoirs) : le contenu change
-// rarement → on le sert du téléphone pendant 24h au lieu de re-télécharger à chaque visite.
-// Scalabilité : divise l'egress Supabase par ~10 et rend la navigation instantanée.
-const CACHE_TTL = 24 * 3600 * 1000;
-const CACHE_MAX = 80;              // ~80 réponses max (localStorage ≈ 5 Mo)
-const CACHE_CONTENU = /^edu_(chapitres|documents|matieres|niveaux|sections|exercices|devoirs)\?/;
-// Version de l'app (lue depuis app.js?v=NN) : chaque déploiement invalide le cache de
-// contenu — sinon un élève garderait 24h une liste de matières/chapitres périmée.
+/* ── Données : fichiers JSON statiques servis avec le site ───────── */
+// meta.json (niveaux, sections, version du contenu) est relu à chaque session ;
+// les autres fichiers sont versionnés par ?v=<version du contenu> → cache navigateur sûr.
 const APP_V = (() => {
   try { const s = document.querySelector('script[src*="app.js?v="]'); return s ? s.src.split("v=")[1] : "0"; } catch { return "0"; }
 })();
-// Purge des caches d'anciennes versions au démarrage.
+// Purge des caches localStorage « njc » de l'ancienne architecture.
 try {
   for (let i = localStorage.length - 1; i >= 0; i--) {
     const k = localStorage.key(i);
-    if (k && k.startsWith("njc") && !k.startsWith("njc" + APP_V + ":")) localStorage.removeItem(k);
+    if (k && k.startsWith("njc")) localStorage.removeItem(k);
   }
 } catch {}
-function cacheGet(k) {
-  try {
-    const raw = localStorage.getItem("njc" + APP_V + ":" + k);
-    if (!raw) return null;
-    const o = JSON.parse(raw);
-    if (Date.now() - o.t > CACHE_TTL) { localStorage.removeItem("njc" + APP_V + ":" + k); return null; }
-    return o.d;
-  } catch { return null; }
-}
-function cacheSet(k, d) {
-  try {
-    const keys = [];
-    for (let i = 0; i < localStorage.length; i++) { const key = localStorage.key(i); if (key && key.startsWith("njc" + APP_V + ":")) keys.push(key); }
-    if (keys.length >= CACHE_MAX) {
-      // éviction du plus ancien
-      let oldest = null, oldestT = Infinity;
-      keys.forEach(key => { try { const t = JSON.parse(localStorage.getItem(key)).t; if (t < oldestT) { oldestT = t; oldest = key; } } catch { localStorage.removeItem(key); } });
-      if (oldest) localStorage.removeItem(oldest);
-    }
-    localStorage.setItem("njc" + APP_V + ":" + k, JSON.stringify({ t: Date.now(), d }));
-  } catch {} // stockage plein : on continue sans cache
-}
-// Bandeau de maintenance : affiché une seule fois si la base de contenu est injoignable.
+// Bandeau de maintenance : affiché une seule fois si le contenu est injoignable.
 function showMaint() {
   if (document.getElementById("maint")) return;
   const b = document.createElement("div");
@@ -106,22 +78,53 @@ function showMaint() {
   b.innerHTML = '🔧 Maintenance en cours — le contenu revient très bientôt.<br><span dir="rtl">الموقع في صيانة مؤقتة — المحتوى يرجع قريبًا إن شاء الله</span>';
   document.body.appendChild(b);
 }
-async function api(path) {
-  const cachable = CACHE_CONTENU.test(path);
-  if (cachable) { const hit = cacheGet(path); if (hit) return hit; }
-  let r;
-  try { r = await fetch(REST + path, { headers: H }); }
-  catch (e) { if (navigator.onLine !== false) showMaint(); throw e; }
-  if (r.status >= 500) showMaint();
-  if (!r.ok) throw new Error("api " + r.status + " " + path);
-  const d = await r.json();
-  if (cachable && Array.isArray(d) && d.length) cacheSet(path, d);
-  return d;
-}
 const cache = {};
 async function cached(k, fn) { if (cache[k]) return cache[k]; return (cache[k] = await fn()); }
+let META = null;
+async function meta() {
+  if (META) return META;
+  let r;
+  try { r = await fetch(DATA + "meta.json", { cache: "no-store" }); }
+  catch (e) { if (navigator.onLine !== false) showMaint(); throw e; }
+  if (!r.ok) { showMaint(); throw new Error("meta " + r.status); }
+  return (META = await r.json());
+}
+async function dget(file) {
+  const k = "f:" + file;
+  if (k in cache) return cache[k];
+  const m = await meta();
+  let r;
+  try { r = await fetch(DATA + file + "?v=" + m.v); }
+  catch (e) { if (navigator.onLine !== false) showMaint(); throw e; }
+  if (r.status === 404) return (cache[k] = null);
+  if (!r.ok) throw new Error("data " + r.status + " " + file);
+  return (cache[k] = await r.json());
+}
+// Traduit les requêtes de l'app (style « table?filtres ») vers les fichiers statiques.
+async function api(path) {
+  const [table, qs] = path.split("?");
+  const q = new URLSearchParams(qs || "");
+  const eq = name => { const v = q.get(name); return v && v.startsWith("eq.") ? v.slice(3) : null; };
+  if (table === "edu_niveaux") return (await meta()).niveaux;
+  if (table === "edu_sections") return (await meta()).sections;
+  if (table === "edu_chapitres") return (await dget(`n${eq("niveau_id")}/chapitres.json`)) || [];
+  if (table === "edu_documents") { const c = await dget(`ch/${eq("chapitre_id")}.json`); return (c && c.docs) || []; }
+  if (table === "edu_exercices") {
+    if (eq("chapitre_id")) { const c = await dget(`ch/${eq("chapitre_id")}.json`); return (c && c.exos) || []; }
+    return (await dget(`n${eq("niveau_id")}/quiz-${eq("matiere_id")}.json`)) || [];
+  }
+  if (table === "edu_devoirs") {
+    if (eq("id")) { const d = await dget(`dv/${eq("id")}.json`); return d ? [d] : []; }
+    let l = (await dget(`n${eq("niveau_id")}/devoirs.json`)) || [];
+    const mat = eq("matiere_id");
+    if (mat) l = l.filter(d => String(d.matiere_id) === mat);
+    if (ST.section) l = l.filter(d => !d.section || d.section === ST.section);
+    return l;
+  }
+  throw new Error("api inconnue " + path);
+}
 
-/* ── Suivi élève (identité anonyme + RPC) ───────────────────────── */
+/* ── Suivi élève : 100 % local (aucune donnée personnelle envoyée) ── */
 function uuid() {
   if (crypto && crypto.randomUUID) return crypto.randomUUID();
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
@@ -129,29 +132,41 @@ function uuid() {
   });
 }
 function eleveId() { if (!ST.eid) { ST.eid = uuid(); save(); } return ST.eid; }
-async function rpc(name, args) {
-  try {
-    const r = await fetch(REST + "rpc/" + name, {
-      method: "POST",
-      headers: { ...H, "Content-Type": "application/json" },
-      body: JSON.stringify(args || {}),
-    });
-    if (!r.ok) return null;
-    const t = await r.text(); return t ? JSON.parse(t) : null;
-  } catch { return null; }
-}
-// Enregistre une tentative (exercice/quiz) — silencieux, sans bloquer l'UI.
-function logTentative(exerciceId, correct) {
+function todayIso() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+// Enregistre la dernière tentative de chaque exercice (exercices + quiz), sur l'appareil.
+function logTentative(exerciceId, correct, chap, mat) {
   if (!exerciceId) return;
-  rpc("edu_log_tentative", { p_eleve: eleveId(), p_exercice: exerciceId, p_correcte: !!correct, p_duree_s: null });
+  if (!ST.tent) ST.tent = {};
+  const d = todayIso();
+  ST.tent[exerciceId] = { c: +chap || 0, m: +mat || 0, ok: correct ? 1 : 0, d };
+  if (!ST.jours) ST.jours = [];
+  if (ST.jours[ST.jours.length - 1] !== d) { ST.jours.push(d); if (ST.jours.length > 400) ST.jours.shift(); }
+  save();
 }
-// Synchronise le profil (niveau/section) côté serveur.
-function syncProfil() {
-  if (!ST.niveau) return;
-  rpc("edu_upsert_profil", { p_eleve: eleveId(), p_niveau: ST.niveau, p_section: ST.section || null, p_prenom: ST.prenom || null });
+function syncProfil() {}
+// Calcule la progression (tableau de bord + contexte du tuteur) à partir du suivi local.
+async function chargerProgression() {
+  const t = Object.values(ST.tent || {});
+  const jours = ST.jours || [];
+  const p = { total_tentatives: t.length, taux_global: 0, par_matiere: [], points_faibles: [], jours_actifs: jours.length, derniere_activite: jours[jours.length - 1] || null };
+  if (t.length) {
+    p.taux_global = t.filter(x => x.ok).length / t.length;
+    const pm = {}, pc = {};
+    t.forEach(x => {
+      const a = pm[x.m] || (pm[x.m] = { matiere_id: x.m, n: 0, ok: 0, ch: {} });
+      a.n++; a.ok += x.ok; a.ch[x.c] = 1;
+      if (x.c) { const b = pc[x.c] || (pc[x.c] = { chapitre_id: x.c, matiere_id: x.m, n: 0, ok: 0 }); b.n++; b.ok += x.ok; }
+    });
+    p.par_matiere = Object.values(pm).filter(a => a.matiere_id)
+      .map(a => ({ matiere_id: a.matiere_id, taux: a.ok / a.n, tentatives: a.n, chapitres_travailles: Object.keys(a.ch).length }));
+    const titres = {};
+    (cache["chap-niv-" + ST.niveau] || []).forEach(c => { titres[c.id] = c.titre; });
+    p.points_faibles = Object.values(pc).filter(b => b.n >= 3 && b.ok / b.n < 0.6)
+      .map(b => ({ chapitre_id: b.chapitre_id, matiere_id: b.matiere_id, chapitre: titres[b.chapitre_id] || "", taux: b.ok / b.n }))
+      .filter(b => b.chapitre).sort((a, b) => a.taux - b.taux).slice(0, 5);
+  }
+  return (ST._prog = p);
 }
-// Récupère et met en cache la progression (pour tableau de bord + contexte tuteur).
-async function chargerProgression() { ST._prog = await rpc("edu_ma_progression", { p_eleve: eleveId() }); return ST._prog; }
 
 /* ── Utilitaires langue / rendu ─────────────────────────────────── */
 function isAr(t) { return /[؀-ۿ]/.test(t || ""); }
@@ -327,28 +342,39 @@ function paywallHtml(titre, detail) {
 function wirePaywall(root) {
   (root || document).querySelectorAll("[data-gopremium]").forEach(b => b.onclick = () => go({ name: "profil" }));
 }
-// Corrigés d'exercices : verrouillés côté serveur, récupérés via RPC avec le code Premium.
-async function chargerCorrigesExos(ids) {
+// Corrigés : fichiers chiffrés (AES-GCM), déchiffrés avec la clé du niveau remise
+// par le serveur à l'activation du code Premium.
+function b64bytes(s) { const b = atob(s); const u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+async function dechiffrer(file) {
+  const k = ST.premium && ST.premium.k;
+  if (!k || !isPremium()) return null;
+  const ck = "e:" + file;
+  if (ck in cache) return cache[ck];
+  const m = await meta();
+  const r = await fetch(DATA + file + "?v=" + m.v);
+  if (!r.ok) return (cache[ck] = null);
+  const buf = new Uint8Array(await r.arrayBuffer());
+  const key = await crypto.subtle.importKey("raw", b64bytes(k), "AES-GCM", false, ["decrypt"]);
+  const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: buf.slice(0, 12) }, key, buf.slice(12));
+  return (cache[ck] = JSON.parse(new TextDecoder().decode(plain)));
+}
+// Corrigés d'exercices : un fichier chiffré par chapitre → { idExercice: corrigé }.
+async function chargerCorrigesExos(exos, chap) {
   const map = {};
-  if (!ids.length || !isPremium()) return map;
-  try {
-    const r = await fetch(REST + "rpc/edu_corriges_exercices", {
-      method: "POST",
-      headers: Object.assign({ "Content-Type": "application/json" }, H),
-      body: JSON.stringify({ p_ids: ids, p_code: (ST.premium && ST.premium.code) || "" }),
-    });
-    const res = await r.json();
-    if (res && res.ok) (res.corriges || []).forEach(c => { map[c.id] = c.corrige; });
-  } catch {}
+  if (!exos.length || !isPremium()) return map;
+  const chaps = [...new Set(exos.map(e => e.chapitre_id || chap).filter(Boolean))];
+  await Promise.all(chaps.map(async c => {
+    try { Object.assign(map, (await dechiffrer(`cx/${c}.enc`)) || {}); } catch {}
+  }));
   return map;
 }
 async function rpcActiverCode(code) {
-  const r = await fetch(REST + "rpc/edu_activer_code", {
+  const r = await fetch(API, {
     method: "POST",
-    headers: Object.assign({ "Content-Type": "application/json" }, H),
-    body: JSON.stringify({ p_code: code, p_niveau: ST.niveau || null }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "activer", code, niveau: ST.niveau || null }),
   });
-  if (!r.ok) throw new Error("rpc " + r.status);
+  if (!r.ok) throw new Error("api " + r.status);
   return r.json();
 }
 async function activerPremium(codeSaisi) {
@@ -357,7 +383,7 @@ async function activerPremium(codeSaisi) {
   try {
     const res = await rpcActiverCode(code);
     if (res.ok) {
-      ST.premium = { code, plan: res.plan, expire: res.expire_a };
+      ST.premium = { code, plan: res.plan, expire: res.expire_a, k: res.k, chk: Date.now() };
       save();
       toast("🌟 Premium activé (" + (res.plan === "trimestre" ? "3 mois" : "1 mois") + ") — مبروك !");
       return true;
@@ -367,59 +393,17 @@ async function activerPremium(codeSaisi) {
     return false;
   } catch (e) { toast("Connexion impossible, réessaie."); return false; }
 }
-// ── Paiement Flouci (API automatique via Edge Function) ──────────────
-async function flouciPay(plan) {
-  try {
-    toast("Redirection vers Flouci… 💳");
-    const r = await fetch(FN + "flouci", {
-      method: "POST",
-      headers: Object.assign({ "Content-Type": "application/json" }, H),
-      body: JSON.stringify({ action: "init", plan, origin: location.origin, contact: ST.parentEmail || "" }),
-    });
-    const j = await r.json();
-    if (j.ok && j.link) { location.href = j.link; return; }
-    if (j.raison === "flouci_non_configure") { toast("Le paiement en ligne arrive très bientôt 🙏"); return; }
-    toast("Paiement indisponible pour le moment, réessaie.");
-  } catch (e) { toast("Connexion impossible, réessaie."); }
-}
-// Retour depuis Flouci : ?flouci=<vente> (succès) ou ?flouci_fail=<vente>
-async function flouciRetour() {
-  const p = new URLSearchParams(location.search);
-  const vente = p.get("flouci");
-  const fail = p.get("flouci_fail");
-  if (!vente && !fail) return;
-  const clean = () => { try { history.replaceState({}, "", location.pathname); } catch {} };
-  if (fail) { clean(); toast("Paiement annulé ou échoué — tu peux réessayer 🙂"); return; }
-  toast("Vérification du paiement… ⏳");
-  try {
-    const r = await fetch(FN + "flouci", {
-      method: "POST",
-      headers: Object.assign({ "Content-Type": "application/json" }, H),
-      body: JSON.stringify({ action: "verify", vente }),
-    });
-    const j = await r.json();
-    if (j.ok && j.code) {
-      ST.premium = { code: j.code, plan: j.plan, expire: j.expire_a || null };
-      save();
-      await revaliderPremium();   // fiabilise plan + échéance à partir du code
-      clean();
-      toast("🌟 Premium activé — مبروك ! Note ton code : " + j.code);
-      go({ name: "profil" });
-    } else {
-      clean();
-      toast(j.raison === "paiement_non_confirme"
-        ? "Paiement non confirmé. Si tu as été débité, réessaie dans 1 min."
-        : "Vérification impossible — réessaie ou contacte le support.");
-    }
-  } catch (e) { toast("Connexion impossible pour vérifier le paiement."); }
-}
-// Revalidation silencieuse au démarrage (révocation / expiration / code partagé)
-async function revaliderPremium() {
+// Paiement en ligne automatique : pas encore disponible (paiement par transfert Flouci/IZI).
+async function flouciPay() { toast("Le paiement en ligne arrive très bientôt 🙏"); }
+function flouciRetour() {}
+// Revalidation silencieuse (révocation / expiration / code partagé) : au plus 1 fois par 12 h.
+async function revaliderPremium(force) {
   if (!ST.premium || !ST.premium.code) return;
+  if (!force && ST.premium.k && ST.premium.chk && Date.now() - ST.premium.chk < 12 * 3600 * 1000) return;
   try {
     const res = await rpcActiverCode(ST.premium.code);
-    if (res.ok) { ST.premium.plan = res.plan; ST.premium.expire = res.expire_a; }
-    else { ST.premium = null; }
+    if (res.ok) { ST.premium.plan = res.plan; ST.premium.expire = res.expire_a; ST.premium.k = res.k; ST.premium.chk = Date.now(); }
+    else if (res.raison) { ST.premium = null; }
     save();
   } catch {} // hors-ligne : on garde l'état local jusqu'à la prochaine connexion
 }
@@ -786,8 +770,14 @@ async function renderChapitre(chap, mat, tab) {
   if (tab === "cours") {
     const docs = await api(`edu_documents?select=titre,contenu,type,langue&chapitre_id=eq.${chap}&order=cree_a`);
     if (!docs.length) { body.innerHTML = emptyBox("Cours bientôt disponible. Pose ta question au tuteur en attendant !"); return; }
-    body.innerHTML = docs.map(d => `<div class="lesson"${dirAttr(d.contenu)}>
-      <h3${dirAttr(d.titre)}>${esc(d.titre)}</h3>${lessonHtml(d.contenu)}</div>`).join("<div style='height:12px'></div>");
+    const arC = isAr(String(docs[0].contenu || "").slice(0, 300));
+    const tete = `<div class="copie cp-fiche">${cartouche(arC,
+      `<b>${etabNom(ST.niveau, arC)}</b><small dir="ltr">${anneeScolaire()}</small>`,
+      `<u class="cp-mat">${esc(arC ? (m.ar || m.fr) : m.fr.toUpperCase())}</u><b>${arC ? "درس" : "COURS"}</b>`,
+      `${classeNom(ST.niveau, arC)}${c.trimestre ? `<small>${arC ? (TRI_AR[c.trimestre] || "") : (TRI[c.trimestre] || "")}</small>` : ""}`)}</div>`;
+    body.innerHTML = tete + docs.map(d => `<div class="lesson"${dirAttr(d.contenu)}>
+      <h3${dirAttr(d.titre)}>${esc(d.titre)}</h3>${lessonHtml(d.contenu)}</div>`).join("<div style='height:12px'></div>") + BTN_PRINT;
+    wirePrint(body);
   } else if (tab === "devoirs") {
     const secFilter = ST.section ? `&or=(section.is.null,section.eq.${ST.section})` : "";
     const devs = await api(`edu_devoirs?select=id,type,trimestre,titre,duree_min,bareme,langue&niveau_id=eq.${ST.niveau}&matiere_id=eq.${mat}&valide=is.true${secFilter}&order=trimestre,type`);
@@ -806,9 +796,15 @@ async function renderChapitre(chap, mat, tab) {
     }
     const exos = await api(`edu_exercices?select=id,enonce,difficulte,type,langue&chapitre_id=eq.${chap}&valide=is.true&order=difficulte`);
     if (!exos.length) { body.innerHTML = emptyBox("Exercices bientôt disponibles."); return; }
-    const cors = await chargerCorrigesExos(exos.map(e => e.id));
+    const cors = await chargerCorrigesExos(exos, chap);
     exos.forEach(e => { e.corrige = cors[e.id] || null; });
-    body.innerHTML = exos.map((e, i) => exoCard(e, i)).join("");
+    const arS = exos[0].langue === "ar";
+    body.innerHTML = `<div class="copie cp-fiche">${cartouche(arS,
+      `<b>${etabNom(ST.niveau, arS)}</b><small dir="ltr">${anneeScolaire()}</small>`,
+      `<u class="cp-mat">${esc(arS ? (m.ar || m.fr) : m.fr.toUpperCase())}</u><b>${arS ? "سلسلة تمارين" : "SÉRIE D'EXERCICES"}</b>`,
+      `${classeNom(ST.niveau, arS)}<small${dirAttr(c.titre)}>${esc(c.titre)}</small>`)}</div>`
+      + exos.map((e, i) => exoCard(e, i)).join("") + BTN_PRINT;
+    wirePrint(body);
     body.querySelectorAll("[data-reveal]").forEach(b => b.onclick = () => {
       const id = b.dataset.reveal;
       document.getElementById("cor-" + id).hidden = false;
@@ -817,7 +813,7 @@ async function renderChapitre(chap, mat, tab) {
     body.querySelectorAll("[data-judge]").forEach(b => b.onclick = () => {
       const id = b.dataset.id, ok = b.dataset.judge === "ok";
       ST.done[id] = ok ? "compris" : "revoir"; save();
-      logTentative(id, ok);
+      logTentative(id, ok, chap, mat);
       if (ok) addPoints(5, "Exercice compris"); else toast("💪 On révise, courage !");
       const wrap = document.getElementById("judge-" + id);
       if (wrap) wrap.innerHTML = ok ? `<span class="badge done">✓ Compris</span>` : `<span class="badge diff">À revoir</span>`;
@@ -835,9 +831,8 @@ function exoCard(e, i) {
   const state = ST.done[e.id];
   const badge = state === "compris" ? `<span class="badge done">✓ Compris</span>` : state === "revoir" ? `<span class="badge diff">À revoir</span>` : "";
   return `<div class="ex-card">
-    <div class="ex-head"><span class="row-num">${i + 1}</span>
+    <div class="ex-head"${e.langue==='ar'?' dir="rtl"':''}><span class="exo-t">${e.langue==='ar' ? "التمرين عدد " + (i + 1) : "Exercice n°" + (i + 1)}</span>
       <span class="stars" title="Difficulté">${stars}</span>
-      <span class="badge ${e.langue==='ar'?'ar':'fr'}">${e.langue==='ar'?'عربي':'FR'}</span>
       <span id="judge-${e.id}">${badge}</span></div>
     <div class="ex-q"${dirAttr(q)}>${mathHtml(q)}</div>
     ${figHtml(e.enonce && e.enonce.figure_svg)}
@@ -845,20 +840,51 @@ function exoCard(e, i) {
       <button class="btn soft" data-reveal="${e.id}">Voir la correction</button>
       <button class="btn ghost" data-askexo="${esc(q)}">🧑‍🏫 Un indice</button>
     </div>
-    <div class="correction" id="cor-${e.id}" hidden>
-      <div${dirAttr(et)}><b>Étapes :</b>\n${mathHtml(et)}</div>
-      ${sol ? `<div class="sol"${dirAttr(sol)}>✅ ${mathHtml(sol)}</div>` : ""}
-      <div class="btn-row">
-        <button class="btn ok" data-judge="ok" data-id="${e.id}">J'ai compris 👍</button>
-        <button class="btn ghost" data-judge="no" data-id="${e.id}">Pas encore 🤔</button>
-      </div>
-    </div>
+    <div class="correction" id="cor-${e.id}" hidden><div${dirAttr(et)}><b class="cp-cor-t">${e.langue==='ar' ? "الإصلاح" : "Correction"}</b>
+${mathHtml(et)}</div>${sol ? `<div class="sol"${dirAttr(sol)}>✅ ${mathHtml(sol)}</div>` : ""}<div class="btn-row"><button class="btn ok" data-judge="ok" data-id="${e.id}">J'ai compris 👍</button><button class="btn ghost" data-judge="no" data-id="${e.id}">Pas encore 🤔</button></div></div>
   </div>`;
 }
 
 /* ══════════════════════════════════════════════════════════════════
    DEVOIRS
    ══════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════
+   MISE EN PAGE « DOCUMENT TUNISIEN » (cartouche des cours, séries et devoirs)
+   ══════════════════════════════════════════════════════════════════ */
+// Année scolaire tunisienne en cours (rentrée en septembre).
+function anneeScolaire() { const d = new Date(), y = d.getFullYear(); return d.getMonth() >= 8 ? y + " / " + (y + 1) : (y - 1) + " / " + y; }
+function etabNom(nivId, ar) {
+  const c = ((ST._niveaux || []).find(x => x.id === nivId) || {}).cycle;
+  if (ar) return c === "primaire" ? "المدرسة الابتدائية نجاح" : c === "college" ? "المدرسة الإعدادية نجاح" : "المعهد الثانوي نجاح";
+  return c === "primaire" ? "École primaire Najah" : c === "college" ? "Collège Najah" : "Lycée Najah";
+}
+function classeNom(nivId, ar) {
+  const nv = (ST._niveaux || []).find(x => x.id === nivId);
+  if (!nv) return "";
+  const sec = ST.section ? (ST._sections || []).find(x => x.code === ST.section) : null;
+  return "<b>" + esc(ar ? nv.nom_ar : nv.nom_fr) + "</b>" + (sec ? "<small>" + esc(ar ? sec.nom_ar : sec.nom_fr) + "</small>" : "");
+}
+// Cartouche à 3 cases, comme l'en-tête des documents des établissements tunisiens.
+function cartouche(ar, g, c, d, w) {
+  const l = w || [30, 40, 30];
+  return `<table class="cp-entete"${ar ? ' dir="rtl"' : ' dir="ltr"'}><colgroup><col style="width:${l[0]}%"><col style="width:${l[1]}%"><col style="width:${l[2]}%"></colgroup><tr><td>${g}</td><td>${c}</td><td>${d}</td></tr></table>`;
+}
+const ORD_AR = ["الأوّل", "الثاني", "الثالث", "الرابع", "الخامس", "السادس", "السابع", "الثامن", "التاسع", "العاشر"];
+function exTitre(num, ar) {
+  if (!/^\d+$/.test(String(num))) return esc(String(num));   // ex. « Chimie 1 »
+  return ar ? "التمرين " + (ORD_AR[+num - 1] || num) : "Exercice n°" + num;
+}
+function ptsLabel(b, ar) {
+  const t = String(b == null ? "" : b).trim();
+  if (!t) return "";
+  return /^\d+([.,]\d+)?$/.test(t) ? t + (ar ? " نقاط" : " points") : t;
+}
+// Impression / PDF : toujours en thème clair, comme une feuille.
+window.addEventListener("beforeprint", () => document.body.classList.remove("dark"));
+window.addEventListener("afterprint", () => applyTheme());
+const BTN_PRINT = '<div class="btn-row no-print"><button class="btn block ghost" data-print>🖨️ Imprimer / PDF</button></div>';
+function wirePrint(root) { (root || document).querySelectorAll("[data-print]").forEach(b => b.onclick = () => window.print()); }
+
 async function renderDevoirsHub() {
   app.innerHTML = topbar("Devoirs") + `<div class="pad">
     <div class="section-title">📝 Devoirs — contrôles & synthèses</div>
@@ -916,61 +942,57 @@ async function renderDevoir(id) {
   async function chargerCorrige() {
     if (corById) return true;
     try {
-      const r = await fetch(REST + "rpc/edu_devoir_corrige", {
-        method: "POST",
-        headers: Object.assign({ "Content-Type": "application/json" }, H),
-        body: JSON.stringify({ p_devoir: d.id, p_code: (ST.premium && ST.premium.code) || "" }),
-      });
-      const res = await r.json();
-      if (!res.ok) return false;
+      const cor = await dechiffrer(`cd/${d.id}.enc`);
+      if (!cor) return false;
       corById = {};
-      ((res.corrige && res.corrige.exercices) || []).forEach((c, i) => corById[i] = dvCorrigeToStr(c));
+      (cor.exercices || []).forEach((c, i) => corById[i] = dvCorrigeToStr(c));
       return true;
     } catch { return false; }
   }
   const ar = d.langue === "ar";
-  const anneeScolaire = "2025 / 2026";
-  const nivObj = (ST._niveaux || []).find(n => n.id === d.niveau_id);
-  const nivNom = nivObj ? (ar ? nivObj.nom_ar : nivObj.nom_fr) : "";
+  const mInfo = MAT[d.matiere_id] || {};
+  const matNom = ar ? (mInfo.ar || mInfo.fr || "") : (mInfo.fr || "").toUpperCase();
   const noteSur = esc((d.bareme || "20").replace(/[^0-9]/g, "") || "20");
-  const triAr = { 1: "الثلاثي الأوّل", 2: "الثلاثي الثاني", 3: "الثلاثي الثالث" };
   const isBac = d.type === "bac";
-  const etab = isBac ? (ar ? "امتحان البكالوريا" : "Examen du Baccalauréat")
-    : ar ? "المدرسة الإعدادية الافتراضية نجاح" : "Collège virtuel Najah";
-  const minist = ar ? "الجمهورية التونسية · وزارة التربية" : "République Tunisienne · Ministère de l'Éducation";
-  const nomLigne = ar
-    ? "الاسم واللقب: ⋯⋯⋯⋯⋯⋯⋯⋯⋯⋯⋯⋯  ·  القسم: ⋯⋯⋯  ·  الرقم: ⋯⋯"
-    : "Nom & Prénom : ⋯⋯⋯⋯⋯⋯⋯⋯⋯⋯  ·  Classe : ⋯⋯⋯  ·  N° : ⋯⋯";
+  const numDev = (String(d.titre || "").match(/(?:n°|N°|عدد)\s*(\d+)/) || [])[1] || "";
+  const typeLbl = d.type === "devoir_synthese" ? (ar ? "فرض تأليفي" : "DEVOIR DE SYNTHÈSE") : (ar ? "فرض مراقبة" : "DEVOIR DE CONTRÔLE");
+  const tri = ar ? (TRI_AR[d.trimestre] || "") : (TRI[d.trimestre] || "");
+  const duree = (d.duree_min || "?") + (ar ? " دق" : " mn");
+  const session = (String(d.titre || "").match(/20\d\d/) || [""])[0];
+  const secBac = ST.section ? (ST._sections || []).find(x => x.code === ST.section) : null;
+  const entete = isBac
+    ? cartouche(ar,
+        ar ? `<b>الجمهورية التونسية</b><small>وزارة التربية</small><b>امتحان البكالوريا</b>${session ? `<small>دورة ${session}</small>` : ""}`
+           : `<b>RÉPUBLIQUE TUNISIENNE</b><small>MINISTÈRE DE L'ÉDUCATION</small><b>EXAMEN DU BACCALAURÉAT</b>${session ? `<small>SESSION ${session}</small>` : ""}`,
+        `<small>${ar ? "الاختبار" : "Épreuve"}</small><u class="cp-mat">${esc(matNom)}</u>`,
+        `${secBac ? `<small>${ar ? "الشعبة" : "Section"}</small><b>${esc(ar ? secBac.nom_ar : secBac.nom_fr)}</b>` : classeNom(d.niveau_id, ar)}<small>${ar ? "المدّة" : "Durée"} : ${duree}</small>`, [36, 38, 26])
+    : cartouche(ar,
+        `<b>${etabNom(d.niveau_id, ar)}</b><small>${ar ? "المدّة" : "Durée"} : ${duree}</small>`,
+        `<u class="cp-mat">${esc(matNom)}</u><b>${typeLbl}${numDev ? (ar ? " عدد " : " N°") + numDev : ""}</b>${tri ? `<small>${tri}</small>` : ""}`,
+        `${classeNom(d.niveau_id, ar)}<small dir="ltr">${anneeScolaire()}</small><small>${ar ? "العدد" : "Note"} : ……… / ${noteSur}</small>`);
+  const nomLigne = (ar
+    ? ["الاسم : ………………", "اللقب : ………………", "الرقم : ……", "القسم : ………"]
+    : ["Nom : ………………", "Prénom : ………………", "N° : ……", "Classe : ………"]).map(x => `<span>${x}</span>`).join(" ");
   body.innerHTML = `
-    <div class="card devoir-entete"${ar?' dir="rtl"':''}>
-      <div class="dv-top">
-        <div class="dv-etab"><b>🏫 ${etab}</b><span>${minist}</span></div>
-        <div class="dv-annee"><span>${ar?"السنة الدراسية":"Année scolaire"}</span><b dir="ltr">${anneeScolaire}</b></div>
-      </div>
-      <div class="dv-titre"${dirAttr(d.titre)}>${esc(d.titre)}</div>
-      <div class="dv-barre">
-        <span>⏱️ ${ar?"المدة":"Durée"} : ${d.duree_min||'?'} ${ar?"دقيقة":"min"}</span>
-        <span>📊 ${ar?"العدد على":"Noté sur"} ${noteSur}</span>
-        <span>🗓️ ${isBac?(ar?"الدورة الرئيسية":"Session principale"):ar?(triAr[d.trimestre]||""):(TRI[d.trimestre]||"")}</span>
-        ${nivNom?`<span>🎓 ${esc(nivNom)}</span>`:""}
-      </div>
-      <div class="dv-nom">${nomLigne}</div>
-      <div class="btn-row" style="justify-content:center;margin-top:10px"><button class="btn" id="timer-btn">▶️ ${ar?"ابدأ المؤقّت":"Démarrer le chrono"}</button>
+    <div class="copie"${ar ? ' dir="rtl"' : ''}>
+      <div class="devoir-entete">${entete}${isBac ? "" : `<div class="cp-nom">${nomLigne}</div>`}</div>
+      <div class="cp-sujet"${dirAttr(d.titre)}>${esc(d.titre)}</div>
+      <div class="btn-row no-print" style="justify-content:center;margin:8px 0 2px"><button class="btn" id="timer-btn">▶️ ${ar?"ابدأ المؤقّت":"Démarrer le chrono"}</button>
         <span id="timer" style="align-self:center;font-weight:800;color:var(--rouge)"></span></div>
-    </div>
-    ${exs.map((ex, i) => { const num = ex.numero ?? ex.num ?? (i+1); const bareme = ex.bareme ?? ex.points ?? ''; const tt = [ex.partie, ex.titre].filter(Boolean).join(' · '); return `<div class="ex-card">
-      <div class="ex-head"><span class="row-num">${esc(String(num))}</span>
-        ${tt?`<span class="dv-ex-t"${dirAttr(tt)}>${esc(tt)}</span>`:''}
-        <span class="badge diff">${esc(String(bareme))}</span></div>
+    ${exs.map((ex, i) => { const num = ex.numero ?? ex.num ?? (i+1); const pts = ptsLabel(ex.bareme ?? ex.points, ar); const tt = [ex.partie, ex.titre].filter(Boolean).join(' · '); return `<section class="cp-ex">
+      <div class="cp-ex-h"><span class="cp-ex-t">${exTitre(num, ar)}${tt ? ` : <span${dirAttr(tt)}>${esc(tt)}</span>` : ''}</span>${pts ? `<span class="cp-pts">(${esc(pts)})</span>` : ''}</div>
       <div class="ex-q"${dirAttr(ex.enonce)}>${mathHtml(ex.enonce)}</div>
       ${dvEnonceFigs(ex)}
       ${dvExtraHtml(ex)}
-      <div class="btn-row"><button class="btn soft" data-cor="${i}">Voir le corrigé ${isPremium()?'':'🌟'}</button></div>
+      <div class="btn-row no-print"><button class="btn soft" data-cor="${i}">${ar ? "عرض الإصلاح" : "Voir le corrigé"} ${isPremium()?'':'🌟'}</button></div>
       <div class="correction" id="dcor-${i}" hidden></div>
-    </div>`; }).join("")}
-    <div class="dv-footer"${ar?' dir="rtl"':''}>${ar?"بالتوفيق 🍀":"Bon travail ! 🍀"}</div>
+    </section>`; }).join("")}
+      <div class="cp-fin">${ar ? "بالتوفيق" : "Bon travail"}</div>
+    </div>
+    ${BTN_PRINT}
     <div id="paywall-dev"></div>
-    <div class="btn-row"><button class="btn block soft" id="ask-dev">🧑‍🏫 Aide-moi à corriger avec Najah IA</button></div>`;
+    <div class="btn-row no-print"><button class="btn block soft" id="ask-dev">🧑‍🏫 Aide-moi à corriger avec Najah IA</button></div>`;
+  wirePrint(body);
   body.querySelectorAll("[data-cor]").forEach(b => b.onclick = async () => {
     if (!isPremium()) {
       document.getElementById("paywall-dev").innerHTML = `<div class="card" style="padding:16px;margin-bottom:14px;border:1.5px solid var(--warn)">
@@ -984,11 +1006,11 @@ async function renderDevoir(id) {
     }
     b.disabled = true; b.textContent = "…";
     const ok = await chargerCorrige();
-    if (!ok) { b.disabled = false; b.textContent = "Voir le corrigé"; toast("Corrigé indisponible — revérifie ton code Premium dans Profil."); return; }
+    if (!ok) { b.disabled = false; b.textContent = ar ? "عرض الإصلاح" : "Voir le corrigé"; toast("Corrigé indisponible — revérifie ton code Premium dans Profil."); return; }
     const el = document.getElementById("dcor-" + b.dataset.cor);
     const txt = corById[+b.dataset.cor] || corById[b.dataset.cor] || "—";
     if (isAr(txt)) el.dir = "rtl";
-    el.innerHTML = mathHtml(txt); el.hidden = false; b.remove();
+    el.innerHTML = `<b class="cp-cor-t">${ar ? "الإصلاح" : "Correction"}</b>\n` + mathHtml(txt); el.hidden = false; b.remove();
     addPoints(2, "Devoir travaillé");
   });
   document.getElementById("ask-dev").onclick = () => { openTutor(); tutorPrefill(`Je fais le devoir « ${d.titre} ». Peux-tu m'aider à comprendre la méthode sans me donner directement les réponses ?`); };
@@ -1046,7 +1068,7 @@ async function renderQuiz(mat) {
   // Mélange (Fisher–Yates) puis sélection
   for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
   const qs = pool.slice(0, Math.min(QUIZ_N, pool.length));
-  const corsQz = await chargerCorrigesExos(qs.map(e => e.id));
+  const corsQz = await chargerCorrigesExos(qs);
   qs.forEach(e => { e.corrige = corsQz[e.id] || null; });
 
   let idx = 0, score = 0;
@@ -1081,8 +1103,8 @@ async function renderQuiz(mat) {
       const c = document.getElementById("qz-cor"); if (!c) return;
       c.hidden = false;
       const rv = document.getElementById("qz-reveal"); if (rv) rv.remove();
-      document.getElementById("qz-yes").onclick = () => { logTentative(e.id, true); score++; idx++; step(); };
-      document.getElementById("qz-no").onclick = () => { logTentative(e.id, false); idx++; step(); };
+      document.getElementById("qz-yes").onclick = () => { logTentative(e.id, true, e.chapitre_id, mat); score++; idx++; step(); };
+      document.getElementById("qz-no").onclick = () => { logTentative(e.id, false, e.chapitre_id, mat); idx++; step(); };
     };
     document.getElementById("qz-reveal").onclick = reveal;
     quizTimer = setInterval(() => {
@@ -1249,14 +1271,8 @@ function renderProfil() {
     <div class="pick-grid">
       ${["auto","light","dark"].map(t => `<button class="pick ${(ST.theme||'auto')===t?'on':''}" data-theme="${t}">${t==='auto'?'🌗 Auto':t==='light'?'☀️ Clair':'🌙 Sombre'}</button>`).join("")}
     </div>
-    <div class="section-title">👪 Espace parent (optionnel)</div>
-    <div class="card" style="padding:16px">
-      <div style="color:var(--muted);font-size:13px;font-weight:600;margin-bottom:8px">Reçois chaque semaine le bilan de progression par email. Laisse vide pour désactiver.</div>
-      <input id="parent-email" type="email" inputmode="email" placeholder="email du parent" value="${esc(ST.parentEmail || '')}" style="width:100%;padding:11px;border:1px solid var(--bd,#d8deea);border-radius:10px;font:inherit;box-sizing:border-box;background:var(--card,#fff);color:inherit">
-      <div class="btn-row"><button class="btn block soft" id="parent-save">Enregistrer l'email</button></div>
-    </div>
     <div style="text-align:center;color:var(--muted);font-size:12.5px;margin-top:6px">🔒 Classe verrouillée : ${esc((niv()||{}).nom_fr||"")}${ST.section ? " · " + esc(sectionName(ST.section)) : ""}</div>
-    <p style="color:var(--muted);font-size:12.5px;text-align:center;margin-top:24px">100% gratuit · Programme officiel tunisien 🇹🇳<br>Najah — نجاح · ton prof particulier, 24h/24<br><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--muted)">Politique de confidentialité</a></p>
+    <p style="color:var(--muted);font-size:12.5px;text-align:center;margin-top:24px">Cours gratuits · Programme officiel tunisien 🇹🇳<br>Najah — نجاح · ton prof particulier, 24h/24<br><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--muted)">Politique de confidentialité</a></p>
   </div>` + bottomnav("profil");
   wireChrome();
   document.querySelectorAll("[data-theme]").forEach(b => b.onclick = () => {
@@ -1264,15 +1280,6 @@ function renderProfil() {
     document.querySelectorAll("[data-theme]").forEach(x => x.classList.toggle("on", x === b));
   });
   // Classe verrouillée : plus de changement de niveau depuis le profil.
-  const pe = document.getElementById("parent-email"), ps = document.getElementById("parent-save");
-  if (ps) ps.onclick = async () => {
-    const v = (pe.value || "").trim();
-    if (v && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) { toast("Email invalide."); return; }
-    ST.parentEmail = v; save();
-    syncProfil();
-    await rpc("edu_set_parent_email", { p_eleve: eleveId(), p_email: v });
-    toast(v ? "✅ Bilan hebdo activé pour ce parent." : "Email retiré.");
-  };
   const ia = document.getElementById("install-app");
   if (ia) ia.onclick = installApp;
   wirePremiumBox();

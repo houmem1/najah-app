@@ -51,24 +51,30 @@
       <span class="muted">Les codes sont créés « libres » (lot admin-AAAA-MM) — à vendre ou distribuer.</span>
       <div class="codes-out" id="codes-out" hidden></div>
     </div>
+    <h2>🔧 Gérer un code</h2>
+    <div class="card">
+      <input id="c-code" placeholder="NAJAH-XXXX-XXXX-XXXX" style="min-width:230px">
+      <button class="btn ghost" onclick="majCode({ delier: true })">🔓 Délier la classe</button>
+      <button class="btn ghost" onclick="majCode({ statut: 'revoque' })">⛔ Révoquer</button>
+      <span class="muted" id="c-out"></span>
+      <div class="muted" style="margin-top:8px">« Délier la classe » : pour un élève qui change d'année scolaire — son code pourra être réactivé sur sa nouvelle classe.</div>
+    </div>
     <p class="muted" style="margin:26px 4px">⚠️ Cette page est un outil personnel : ne partage ni l'URL avec la clé, ni ta clé d'administration. La validation d'une vente envoie automatiquement le code Premium à l'élève par email.</p>
   </div>
 </div>
 <script>
-const SUPA = "https://quhfiakafaixjrgsxhpf.supabase.co/rest/v1/rpc/";
-const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1aGZpYWthZmFpeGpyZ3N4aHBmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNjA3NjYsImV4cCI6MjA5NzczNjc2Nn0.rEX9COGXztFqRkQmUb9k_XsZDzVwoFQp2BAZwN8zstQ";
+const API = "https://slhoumem.app.n8n.cloud/webhook/najah-api";
 const N8N_VALIDER = "https://slhoumem.app.n8n.cloud/webhook/premium-flouci-valider";
 let SECRET = sessionStorage.getItem("najah-admin") || "";
 const $ = id => document.getElementById(id);
-async function rpc(name, args) {
-  const r = await fetch(SUPA + name, { method: "POST",
-    headers: { apikey: ANON, Authorization: "Bearer " + ANON, "Content-Type": "application/json" },
-    body: JSON.stringify(args) });
+async function call(action, extra) {
+  const r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(Object.assign({ action, secret: SECRET }, extra || {})) });
   return r.json();
 }
 async function login() {
   SECRET = $("secret").value.trim();
-  const s = await rpc("edu_admin_stats", { p_secret: SECRET });
+  const s = await call("admin");
   if (!s.ok) { $("login-err").textContent = "Clé invalide."; return; }
   sessionStorage.setItem("najah-admin", SECRET);
   boot(s);
@@ -77,15 +83,13 @@ function logout() { sessionStorage.removeItem("najah-admin"); location.reload();
 function stat(v, l) { return `<div class="card stat"><b>${v}</b><span>${l}</span></div>`; }
 async function boot(pre) {
   $("login").hidden = true; $("panel").hidden = false;
-  const s = pre || await rpc("edu_admin_stats", { p_secret: SECRET });
+  const s = pre || await call("admin");
   if (!s.ok) return logout();
   $("stats").innerHTML =
-    stat(s.eleves_total, "Élèves (total)") + stat(s.eleves_7j, "Élèves actifs 7 j") +
-    stat(s.tentatives_total, "Exercices faits") + stat((s.taux_reussite||0) + "%", "Taux de réussite") +
     stat(s.ventes_attente, "Ventes en attente") + stat(s.revenu_dt + " DT", "Revenu validé") +
-    stat(s.codes_libres_mois + " / " + s.codes_libres_trim, "Codes libres (m/t)") + stat(s.codes_actifs, "Abonnés actifs") +
-    stat(s.contenu.cours, "Cours") + stat(s.contenu.exercices, "Exercices") + stat(s.contenu.devoirs, "Devoirs") + stat(s.contenu.chapitres, "Chapitres");
-  const v = await rpc("edu_admin_ventes", { p_secret: SECRET });
+    stat(s.codes_actifs, "Abonnés actifs") + stat(s.codes_libres_mois + " / " + s.codes_libres_trim, "Codes libres (mois / trim.)") +
+    stat(s.codes_total, "Codes au total");
+  const v = s;
   const tb = $("ventes").querySelector("tbody");
   tb.innerHTML = (v.ventes || []).map(x => `<tr>
     <td>${x.date}</td><td>${x.canal}</td><td>${x.plan}</td><td>${x.montant}</td>
@@ -102,10 +106,18 @@ function valider(id, action) {
   setTimeout(boot, 4000);
 }
 async function genCodes() {
-  const r = await rpc("edu_admin_generer_codes", { p_secret: SECRET, p_plan: $("g-plan").value, p_nb: parseInt($("g-nb").value) });
+  const r = await call("admin_generer", { plan: $("g-plan").value, nb: parseInt($("g-nb").value) });
   const out = $("codes-out"); out.hidden = false;
   out.textContent = r.ok ? r.codes.join("\n") : "Erreur : " + (r.raison || "génération impossible");
   boot();
+}
+async function majCode(change) {
+  const code = $("c-code").value.trim();
+  if (!code) { $("c-out").textContent = "Saisis un code."; return; }
+  if (change.statut === "revoque" && !confirm("Révoquer définitivement le code " + code + " ?")) return;
+  const r = await call("admin_code", Object.assign({ code }, change));
+  $("c-out").textContent = r.ok ? "✅ " + r.code + " — statut : " + r.statut + (r.niveau_id ? ", classe " + r.niveau_id : ", aucune classe liée") : "❌ Code introuvable.";
+  if (r.ok) boot();
 }
 if (SECRET) boot(); else $("login").hidden = false;
 </script>

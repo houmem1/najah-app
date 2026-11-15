@@ -1,6 +1,6 @@
 /* Service worker — NETWORK-FIRST : toujours la dernière version quand en ligne,
    cache uniquement en repli hors-ligne. Fini les versions figées en cache. */
-const CACHE = "najah-v49";
+const CACHE = "najah-v50";
 const SHELL = [
   "index.html", "styles.css", "app.js", "config.js",
   "manifest.webmanifest", "icon.svg", "icon-maskable.svg", "icon-app.png", "icon-192.png",
@@ -17,8 +17,8 @@ self.addEventListener("activate", e => {
 });
 self.addEventListener("fetch", e => {
   const url = new URL(e.request.url);
-  // Ne jamais intercepter l'API de données (REST/fonctions Supabase) ni le webhook n8n.
-  if (url.pathname.includes("/rest/v1/") || url.pathname.includes("/functions/v1/") || url.hostname.endsWith("n8n.cloud")) return;
+  // Ne jamais intercepter les appels au serveur n8n (tuteur, API Premium).
+  if (url.hostname.endsWith("n8n.cloud")) return;
   if (e.request.method !== "GET") return;
   // Network-first : on tente le réseau (et on met à jour le cache), repli cache si hors-ligne.
   e.respondWith(

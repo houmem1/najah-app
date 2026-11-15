@@ -1,10 +1,10 @@
 // ── Configuration de la plateforme élève ──────────────────────────────
 // Tout est public (clé anon + webhook public). Aucune donnée sensible ici.
 window.CONFIG = {
-  // Supabase (projet Carbon-Tracker)
-  SUPA_URL: "https://quhfiakafaixjrgsxhpf.supabase.co",
-  // Clé anon LEGACY (format JWT) — nécessaire aussi pour la fonction edge (verify_jwt)
-  SUPA_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1aGZpYWthZmFpeGpyZ3N4aHBmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNjA3NjYsImV4cCI6MjA5NzczNjc2Nn0.rEX9COGXztFqRkQmUb9k_XsZDzVwoFQp2BAZwN8zstQ",
+  // Contenu : fichiers JSON statiques publiés avec le site (dossier data/)
+  DATA: "data/",
+  // API n8n : activation des codes Premium (tables de données n8n)
+  API: "https://slhoumem.app.n8n.cloud/webhook/najah-api",
   // Tuteur IA « Najah IA » — webhook public du Chat Trigger n8n (mode streaming)
   N8N_CHAT: "https://slhoumem.app.n8n.cloud/webhook/dc1c9a30-9601-4728-94a2-020443311f94/chat",
   // Page de chat hébergée par n8n (repli plein écran garanti sans souci de CORS)
@@ -29,11 +29,8 @@ window.CONFIG = {
     iziNumero: "28 001 390",
     // Paiement D17 : numéro du portefeuille D17 (vide = option masquée).
     d17Numero: "",
-    // Paiement Flouci API 100% automatique — nécessite un compte Flouci BUSINESS + jetons API.
-    // Laisser false tant qu'on n'a pas de compte marchand. Passer à true après avoir posé
-    // FLOUCI_APP_TOKEN / FLOUCI_APP_SECRET dans Supabase (Edge Functions → Secrets).
+    // Paiement en ligne automatique : non disponible (transfert Flouci/IZI + validation).
     flouciActif: false,
-    flouciFn: "https://quhfiakafaixjrgsxhpf.supabase.co/functions/v1/flouci",
     // Lien d'achat générique (WhatsApp/site) — vide = texte générique
     contact: "",
   },
