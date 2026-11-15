@@ -97,10 +97,22 @@ function cacheSet(k, d) {
     localStorage.setItem("njc" + APP_V + ":" + k, JSON.stringify({ t: Date.now(), d }));
   } catch {} // stockage plein : on continue sans cache
 }
+// Bandeau de maintenance : affiché une seule fois si la base de contenu est injoignable.
+function showMaint() {
+  if (document.getElementById("maint")) return;
+  const b = document.createElement("div");
+  b.id = "maint";
+  b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:90;background:#141b2d;color:#fff;font-size:13px;font-weight:700;text-align:center;padding:9px 12px;line-height:1.5";
+  b.innerHTML = '🔧 Maintenance en cours — le contenu revient très bientôt.<br><span dir="rtl">الموقع في صيانة مؤقتة — المحتوى يرجع قريبًا إن شاء الله</span>';
+  document.body.appendChild(b);
+}
 async function api(path) {
   const cachable = CACHE_CONTENU.test(path);
   if (cachable) { const hit = cacheGet(path); if (hit) return hit; }
-  const r = await fetch(REST + path, { headers: H });
+  let r;
+  try { r = await fetch(REST + path, { headers: H }); }
+  catch (e) { if (navigator.onLine !== false) showMaint(); throw e; }
+  if (r.status >= 500) showMaint();
   if (!r.ok) throw new Error("api " + r.status + " " + path);
   const d = await r.json();
   if (cachable && Array.isArray(d) && d.length) cacheSet(path, d);
@@ -1445,7 +1457,15 @@ function bubble(cls, html) {
 function meBubble(t) { return bubble("me", esc(t)); }
 // Bulles du tuteur : LaTeX rendu + gras **…** (markdown léger produit par le modèle).
 function richText(t) {
-  return mathHtml(t).replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>");
+  // Normalise le markdown/LaTeX du modèle : \( \) et \[ \] → $ et $$, titres ### → gras, filets --- retirés.
+  const s = String(t == null ? "" : t)
+    .replace(/[‎‏]/g, "")
+    .replace(/\\\[([\s\S]+?)\\\]/g, (m, x) => "$$" + x.trim() + "$$")
+    .replace(/\\\(([\s\S]+?)\\\)/g, (m, x) => "$" + x.trim() + "$")
+    .replace(/^\s*-{3,}\s*$/gm, "")
+    .replace(/^\s*#{1,6}\s+(.+)$/gm, "**$1**")
+    .replace(/\n{3,}/g, "\n\n");
+  return mathHtml(s).replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>");
 }
 function botBubble(t) {
   const d = bubble("bot", richText(t));
